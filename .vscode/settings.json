@@ -1,6 +1,10 @@
 {
     "files.associations": {
         "unistd.h": "c",
-        "wait.h": "c"
+        "wait.h": "c",
+        "stdio.h": "c",
+        "stdlib.h": "c",
+        "ipc.h": "c",
+        "time.h": "c"
     }
 }

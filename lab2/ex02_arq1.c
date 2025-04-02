@@ -15,10 +15,9 @@ int main(void){
     printf("Qual a mensagem do dia? ");
     fgets(mensagem, sizeof(mensagem), stdin);
 
-    // Cria um segmento de memória
-    segmento = shmget(8752, sizeof(mensagem), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
+    segmento = shmget(8752, sizeof(mensagem), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR); // Cria um SHM
     
-    ptr = (char*)shmat(segmento, 0, 0); // Linkando com o segmento de memória
+    ptr = (char*)shmat(segmento, 0, 0); // Cria um ponteiro para a SHM
 
     strcpy(ptr, mensagem); // Salvando a mensagem
 

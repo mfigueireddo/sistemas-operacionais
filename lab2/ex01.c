@@ -9,16 +9,16 @@ int main(void){
 
    int segmento[3], *matriz[3], pid;
 
-   // Criando segmentos de memória
+   // Cria uma SHM
    for(int i = 0; i < 3; i++) {
        segmento[i] = shmget(IPC_PRIVATE, 9 * sizeof(int), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
        if (segmento[i] == -1) {
-           printf("Erro na criação do segmento de memória compartilhada\n");
+           perror("Erro na criação do segmento de memória compartilhada");
            return 1;
        }
    }
 
-   // Linkando os segmentos de memória
+   // Cria ponteiros para a SHM
    for(int i=0; i<3; i++){
     matriz[i] = (int*)shmat(segmento[i], 0, 0);
    }
@@ -30,7 +30,7 @@ int main(void){
     {0, 0, 0, 0, 0, 0, 0, 0, 0},
    };
 
-   // Atribuindo os valores às matrizes
+   // Atribuindo os valores às matrizes alocadas na SHM
    for(int i = 0; i < 9; i++) {
        matriz[0][i] = aux[0][i];
        matriz[1][i] = aux[1][i];
@@ -42,7 +42,7 @@ int main(void){
 
         // Erro
         if(pid<0){
-            printf("Erro\n");
+            perror("Erro na criação de processos");
             return 2;
         } 
 
@@ -64,13 +64,13 @@ int main(void){
 
    // Imprime o resultado final
    for(int i = 0; i < 9; i++) {
-       printf("%d ", matriz[2][i]);
+       printf("%2.0d ", matriz[2][i]);
        if(i == 2 || i == 5) {
            printf("\n");
        }
    }
 
-   // Desanexando e destruindo os segmentos de memória
+   // Desanexando e destruindo os SHM
    for(int i = 0; i < 3; i++) {
         shmdt(matriz[i]);
         shmctl(segmento[i], IPC_RMID, 0);
