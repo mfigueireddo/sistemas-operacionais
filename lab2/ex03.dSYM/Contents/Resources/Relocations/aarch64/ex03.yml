@@ -1,0 +1,5 @@
+---
+triple:          'arm64-apple-darwin'
+binary-path:     '/Users/luananobre/sistemas-operacionais/lab2/ex03'
+relocations:     []
+...
