@@ -52,14 +52,16 @@ Ctrl-C desabilitado. Use Ctrl-\ para terminar
 ^\Terminando o processo...
 
 Conclusão
-...
+Nesse programa, é esperado que o usuário entre com CONTROL+C (tecla que representa SIGINT) para que uma função intHandler seja executada e similarmente, é esperado que o usuário entre com CONTROL+\ (tecla que representa SIGQUIT) para que a função quitHandler seja executada. 
+As funções em si não fazem nada demais, apenas imprimem uma mensagem indicando a ação que foi feita.
+Ao eliminar as linhas que mandam os sinais para as funções, o programa espera uma entrada e é encerrado quando o usuário entra com CONTROL+C, que normalmente encerra o programa.
 
 --- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
 
 2) Tente fazer um programa para interceptar o sinal SIGKILL. Você conseguiu? Explique.
 
 Conclusão
-...
+Não foi possível implementar o programa. O sinal SIGKILL é gerenciado exclusivamente pelo kernel do sistema operacional, logo não pode ser interceptado.
 
 --- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
 
@@ -114,7 +116,9 @@ Resultado
 Child 45633 terminated within 5 seconds com estado 0.
 
 Conclusão
-...
+O programa recebe 2 valores do usuário que irão definir respectivamente: o tempo limite para o encerramento de um processo-filho e o tempo de execução de um processo-filho.
+É programado para que a função childhandler seja executada quando o processo-filho acabar, exibindo uma mensagem indicando o mesmo.
+Caso o processo-filho não consiga ser executado no tempo reservado por ele, o processo-pai entra em ação enviando um sinal para que o processo-filho seja eliminado e imprime uma mensagem indicando o mesmo.
 
 --- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
 
@@ -206,4 +210,5 @@ Executando o filho 2...
 ...
 
 Conclusão
-...
+São feitos 2 forks para que 2 processos-filhos sejam criados. Neles, tudo que é feito é imprimr uma mensagem indicando qual está sendo executado e um sleep é dado, passando a prioridade para outro processo. Isso é feito num loop.
+O processo-pai entra num loop que, alternadamente (10x), envia um sinal para que o processo-filho 1 
