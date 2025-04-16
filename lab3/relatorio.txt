@@ -52,16 +52,14 @@ Ctrl-C desabilitado. Use Ctrl-\ para terminar
 ^\Terminando o processo...
 
 Conclusão
-Nesse programa, é esperado que o usuário entre com CONTROL+C (tecla que representa SIGINT) para que uma função intHandler seja executada e similarmente, é esperado que o usuário entre com CONTROL+\ (tecla que representa SIGQUIT) para que a função quitHandler seja executada. 
-As funções em si não fazem nada demais, apenas imprimem uma mensagem indicando a ação que foi feita.
-Ao eliminar as linhas que mandam os sinais para as funções, o programa espera uma entrada e é encerrado quando o usuário entra com CONTROL+C, que normalmente encerra o programa.
+O programa intercepta sinais usando a função signal(). O Ctrl-C envia o sinal SIGINT, tratado por intHandler(), enquanto Ctrl-\ envia o SIGQUIT, tratado por quitHandler(). Quando os signal() são removidos, os sinais seguem o comportamento padrão: Ctrl-C encerra o programa e Ctrl-\ gera core dump. Aprendi como personalizar o tratamento de sinais para alterar o comportamento padrão do sistema.
 
 --- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
 
 2) Tente fazer um programa para interceptar o sinal SIGKILL. Você conseguiu? Explique.
 
 Conclusão
-Não foi possível implementar o programa. O sinal SIGKILL é gerenciado exclusivamente pelo kernel do sistema operacional, logo não pode ser interceptado.
+Não é possível interceptar o sinal SIGKILL, pois ele é um dos dois sinais (junto com SIGSTOP) que não podem ser capturados, bloqueados ou ignorados. Ele serve para garantir que o sistema possa encerrar um processo em qualquer situação. Aprendi que SIGKILL é usado como último recurso para terminar processos que não respondem.
 
 --- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
 
@@ -116,9 +114,7 @@ Resultado
 Child 45633 terminated within 5 seconds com estado 0.
 
 Conclusão
-O programa recebe 2 valores do usuário que irão definir respectivamente: o tempo limite para o encerramento de um processo-filho e o tempo de execução de um processo-filho.
-É programado para que a função childhandler seja executada quando o processo-filho acabar, exibindo uma mensagem indicando o mesmo.
-Caso o processo-filho não consiga ser executado no tempo reservado por ele, o processo-pai entra em ação enviando um sinal para que o processo-filho seja eliminado e imprime uma mensagem indicando o mesmo.
+O programa cria um processo filho e o substitui por outro usando execve(). O pai aguarda por um tempo definido e, se o filho não terminar sozinho, envia SIGKILL. Um handler para SIGCHLD trata a finalização do filho, imprimindo seu status. Aprendi como usar sinais para controlar e monitorar a execução de processos filhos, além de tratar sua finalização corretamente.
 
 --- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
 
@@ -210,5 +206,4 @@ Executando o filho 2...
 ...
 
 Conclusão
-São feitos 2 forks para que 2 processos-filhos sejam criados. Neles, tudo que é feito é imprimr uma mensagem indicando qual está sendo executado e um sleep é dado, passando a prioridade para outro processo. Isso é feito num loop.
-O processo-pai entra num loop que, alternadamente (10x), envia um sinal para que o processo-filho 1 
+Foram criados dois filhos com loops infinitos. O pai alterna a execução entre eles usando os sinais SIGSTOP (pausa) e SIGCONT (continua). Após 10 trocas, o pai envia SIGKILL para terminar ambos. Aprendi como manipular a execução de processos filhos usando sinais para simular escalonamento cooperativo entre processos.

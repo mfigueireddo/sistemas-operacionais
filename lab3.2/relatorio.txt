@@ -1,0 +1,258 @@
+Matheus Moreira da Silva Figueiredo - 2320813
+Luana Nobre da Costa - 2310204
+
+--- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
+
+5) Faça um programa que leia 2 números e imprima o resultado das 4 operações básicas sobre estes 2 números. 
+- Verifique o que acontece se o 2º. número da entrada for 0 (zero)
+- Capture o sinal de erro de floating point (SIGFPE) e repita a experiência anterior
+
+ex05.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <signal.h>
+
+void erro_divisao(int sign);
+
+int main(void){
+
+    signal(SIGFPE, erro_divisao);
+
+    int nums[2], resultado;
+
+    printf("Insira um número: ");
+    scanf("%d", &nums[0]);
+
+    printf("Insira outro número: ");
+    scanf("%d", &nums[1]);
+
+    // Soma
+    resultado = nums[0]+nums[1];
+    printf("\nSoma: %d", resultado);
+
+    // Subtração
+    resultado = nums[0]-nums[1];
+    printf("\nSubtração: %d", resultado);
+
+    // Multiplicação
+    resultado = nums[0]*nums[1];
+    printf("\nMultiplicação: %d", resultado);
+
+    // Divisão
+    resultado = nums[0]/nums[1];
+    printf("\nDivisão: %d\n", resultado);
+
+    return 0;
+}
+
+void erro_divisao(int sign){
+    printf("\nErro: divisão por 0\n");
+    exit(1);
+}
+
+Compilação e execução
+$ gcc ex05.c -o exe
+$ ./exe
+
+Resultado
+Insira um número: 5
+Insira outro número: 0
+
+Soma: 5
+Subtração: 5
+Multiplicação: 0
+Erro: divisão por 0
+
+Conclusão
+Esse programa pede 2 valores do usuário e faz as operações básicas. Contudo, a função signal() é utilizada para instruir o programa a interceptar o sinal SIGFPE (acionado quando há uma divisão por 0) que aciona a função erro_divisao(), que apenas imprime uma mensagem indicando o erro.
+
+--- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
+
+6) Faça um programa para monitorar e informar o preço de chamadas telefônicas. O programa deverá ser executado em background.
+- O início e o término de uma chamada são  informados através dos sinais SIGUSR1 e SIGUSR2, respectivamente.
+- O custo da ligação é de 2 centavos por segundo, para ligações de até 1 minuto ou de 1 centavo por segundo a partir do 2º. minuto, ou seja, uma ligação de 1m30s custa R$1,50
+
+ex06.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <signal.h>
+#include <time.h>
+
+void liga(int sign);
+void desliga(int sign);
+float calcula(double time);
+
+time_t begin, end;
+int andamento = 0;
+
+int main(void){
+
+    signal(SIGUSR1, liga);
+    signal(SIGUSR2, desliga);
+    
+    while(1){
+        pause();
+    }
+
+    return 0;
+}
+
+void liga(int sign){
+
+    if (andamento) printf("Você já está em uma ligação.\n");
+
+    printf("Ligação iniciada\n");
+    begin = time(NULL);
+    andamento = 1;
+
+}
+
+void desliga(int sign){
+
+    end = time(NULL);
+    double time = difftime(end, begin);
+    float price = calcula(time);   
+
+    printf("Ligação encerrada. Duração: %.0f segundos\n", time);
+    printf("O preço da ligação foi de R$%.2f\n", price/100);
+
+    andamento = 0;
+    exit(1);
+}
+
+float calcula(double time){
+
+    if (time <= 60){
+        return time*2;
+    }
+
+    else{
+        time -= 60;
+        return 120 + time;
+    }
+
+}
+
+Compilação e execução
+$ gcc ex06.c -o exe
+$ ./exe &
+$ kill -SIGUSR1 PID
+$ kill -SIGUSR2 PID
+
+Resultado
+Ligação iniciada
+Ligação encerrada. Duração: 80 segundos
+O preço da ligação foi de R$1.40
+
+Conclusão
+Esse programa utiliza a função signal() para interceptar os sinais SIGUSR1 e SIGUSR2, enviados pelo usuário, e redirecionar para as funções liga() e desliga().
+A função liga() confere se o usuário não está em uma ligação em andamento e, se não, inicia o cronômetro.
+A função desliga() para o cronômetro, calcula o preço da ligação, mostra o tempo da ligação assim como seu preço e encerra a execução do programa.
+ 
+--- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
+
+7) Elabore três programas I/O bound que não terminem (loop de msgs no vídeo).
+- Elabore um programa que seja capaz de executar os 3 programas indicados anteriormente e que simule o compartilhamento da CPU entre os 3 processos com escalonamento Round-Robin com uma fatia de tempo de 1 segundo para o primeiro processo e de 2 segundos para os demais processos. 
+Execute os programas e relate o que aconteceu
+
+ex07.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <signal.h>
+
+int main(void){
+
+    int pid1, pid2, pid3;
+
+    pid1 = fork();
+    // Erro
+    if (pid1<0) perror("Erro no fork");
+    // Filho 1
+    else if(pid1==0){
+        while(1){
+            printf("Eu sou o filho 1\n");
+            sleep(1);
+        }
+    }
+
+    pid2 = fork();
+    // Erro
+    if (pid2<0) perror("Erro no fork");
+    // Filho 2
+    else if(pid2==0){
+        while(1){
+            printf("Eu sou o filho 2\n");
+            sleep(1);
+        }
+    }
+
+    pid3 = fork();
+    // Erro
+    if (pid3<0) perror("Erro no fork");
+    // Filho 3
+    else if(pid3==0){
+        while(1){
+            printf("Eu sou o filho 3\n");
+            sleep(1);
+        }
+    }
+
+    sleep(1);
+
+    kill(pid1, SIGSTOP);
+    kill(pid2, SIGSTOP);
+    kill(pid3, SIGSTOP);
+
+    printf("Iniciando o revezamento\n");
+
+    // Pai
+    while(1){
+        kill(pid1, SIGCONT);
+        sleep(1);
+        kill(pid1, SIGSTOP);
+
+        kill(pid2, SIGCONT);
+        sleep(2);
+        kill(pid2, SIGSTOP);
+
+        kill(pid3, SIGCONT);
+        sleep(2);
+        kill(pid3, SIGSTOP);
+    }
+
+    return 0;
+}
+
+Compilação e execução 
+$ gcc ex07.c -o exe
+$ ./exe
+
+Resultado
+Eu sou o filho 1
+Eu sou o filho 2
+Eu sou o filho 3
+Eu sou o filho 2
+Eu sou o filho 1
+Eu sou o filho 3
+Iniciando o revezamento
+Eu sou o filho 1
+Eu sou o filho 2
+Eu sou o filho 2
+Eu sou o filho 3
+Eu sou o filho 3
+Eu sou o filho 1
+Eu sou o filho 2
+Eu sou o filho 2
+Eu sou o filho 3
+Eu sou o filho 3
+
+Conclusão
+O programa faz 3 forks(), criando 3 processos-filhos que apenas imprimem uma mensagem indicando sua numeração.
+Depois disso, o processo-pai inicia um revezamento de processos, onde:
+- O filho 1 é executado com 1 segundo de tempo máximo 
+- O filho 2 é executado com 2 segundos de tempo máximo
+- O filho 3 é executado com 3 segundos de tempo máximo
+Esse processo continua se repetindo em loop
