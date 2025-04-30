@@ -52,8 +52,8 @@ int main(void){
     }
 
     // Pai
-    close(fd[0]); close(fd[1]);
     wait(NULL);
+    close(fd[0]); close(fd[1]);
 
     return 0;
 }

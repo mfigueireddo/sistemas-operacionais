@@ -1,0 +1,234 @@
+Matheus Moreira da Silva Figueiredo - 2320813
+Luana Nobre da Costa - 2310204
+
+--- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
+
+1) Faça um programa para criar dois processos que se comunicam via pipe. O Pai lê do pipe enquanto o filho escreve no pipe. Exiba o resultado do que foi escrito e lido. 
+
+ex01.c
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+int main(void){
+
+    int pid, fd[2];
+
+    char mensagem[] = "Mensagem escrita pelo filho";
+    char mensagem_copia[sizeof mensagem];
+
+    pipe(fd);
+
+    pid = fork();
+    // Erro
+    if (pid<0){
+        perror("Erro no fork");
+        exit(1);
+    }
+    // Filho
+    else if (pid == 0){
+        write(fd[1], mensagem, strlen(mensagem)+1);
+        printf("Filho escreveu: %s\n", mensagem);
+        close(fd[0]); close(fd[1]);
+        exit(0);
+    }
+
+    wait(NULL);
+    
+    read(fd[0], mensagem_copia, sizeof mensagem_copia);
+    printf("Pai leu: %s\n", mensagem_copia);
+
+    close(fd[0]); close(fd[1]);
+
+    return 0;
+}
+
+Compilação e execução
+$ gcc ex01.c -o exe
+$ ./exe
+
+Resultado
+Filho escreveu: Mensagem escrita pelo filho
+Pai leu: Mensagem escrita pelo filho
+
+Conclusão
+Nesse programa, foi criada uma pipe que "liga" o processo-pai ao processo-filho. O filho utilizada fd[1] e o comando write() para enviar uma mensagem via pipe para o pai, que por sua vez capta essa mensagem por meio de fd[0] e do comando read().
+
+--- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
+
+2) Faça um programa para redirecionar a entrada e a saída, lendo os dados de um arquivo e gerando a saída em outro. 
+
+ex02.c
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>
+
+int main(void){
+
+    int fd_entrada = open("entrada.txt", O_RDONLY);
+    if (fd_entrada<0){ perror("Erro na abertura do arquivo de entrada"); exit(1); }
+    
+    int fd_saida = open("saida.txt", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd_saida<0){ perror("Erro na abertura do arquivo de saída"); exit(1); }
+
+    /*
+    close(0); // Fechando a entrada padrão stdin
+    close(1); // Fechando a entrada padrão stdout
+    */
+
+    // Agora a entrada padrão passa a ser nosso arquivo entrada.txt
+    if (dup2(fd_entrada, 0)<0){ perror("Erro na duplicação do file descriptor de entrada"); exit(1); }
+    close(fd_entrada);
+    
+    // Agora a saída padrão passa a ser nosso arquivo saida.txt
+    if (dup2(fd_saida, 1)<0){ perror("Erro na duplicação do file descriptor de saída"); exit(1); }
+    close(fd_saida);
+
+    char temp[100];
+    ssize_t bytes_lidos;
+    
+    while ((bytes_lidos = read(0, temp, sizeof(temp))) > 0) { // Lê entrada.txt linha por linha
+        write(1, temp, bytes_lidos); // Escreve no saida.txt linha por linha
+    }
+
+    return 0;
+}
+
+entrada.txt
+Info1 Info2
+
+saida.txt (Inicialmente)
+{vazio}
+
+Compilação e execução
+$ gcc ex02.c -o exe
+$ ./exe
+
+Resultado
+saida.txt
+Info1 Info2
+
+Conclusão
+Nesse programação a porta de entrada padrão stdin foi sobrescrita pelo fd que aponta para um arquivo chamado "entrada.txt", assim como a stdout foi sobrescrita pelo fd que aponta para um arquivo chamado "saida.txt".
+O comando utilizado para tal foi o dup2().
+As portas padrões não foram salvas em outro fd como "backup". 
+A fim de escrever as informações na saída, foi feito um loop de leitura com read() e write()
+
+--- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
+
+3) ...
+
+....c
+
+...
+
+Compilação e execução
+$ gcc ....c -o exe
+$ ./exe
+
+Resultado
+...
+
+Conclusão
+...
+
+--- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
+
+4) Faça um programa que cria dois processos leitores e um processo escritor em uma mesma pipe. 
+Faça o escritor dormir metade do tempo dos leitores, e mostre como os leitores consomem os dados produzidos pelo escritor.  
+Obs: não force uma alternância controlada por SIGSTOP/SIGCONT. 
+
+ex04.c
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+int main(void){
+
+    int pid_leitura1, pid_leitura2, pid_escrita, fd[2];
+
+    if (pipe(fd) == -1){ perror("Erro na criação da pipe"); exit(1); }
+
+    // Filho de leitura 1
+    pid_leitura1 = fork();
+    if (pid_leitura1 == 0){
+        char temp[100];
+        ssize_t bytes_lidos;
+        close(fd[1]);
+        while(1){
+            bytes_lidos = read(fd[0], temp, sizeof(temp)-1);
+            if (bytes_lidos > 0){ temp[bytes_lidos] = '\0'; printf("Filho de leitura 1 leu %s\n", temp); }
+            sleep(4);
+        }
+        exit(0);
+    }
+
+    // Filho de leitura 2
+    pid_leitura2 = fork();
+    if (pid_leitura2 == 0){
+        char temp[100];
+        ssize_t bytes_lidos;
+        close(fd[1]);
+        while(1){
+            bytes_lidos = read(fd[0], temp, sizeof(temp)-1);
+            if (bytes_lidos > 0){ temp[bytes_lidos] = '\0'; printf("Filho de leitura 2 leu %s\n", temp); }
+            sleep(4);
+        }
+        exit(0);
+    }
+
+    // Filho de escrita
+    pid_escrita = fork();
+    if (pid_escrita == 0){
+        char mensagem[100] = "Sequência de a's: ";
+        close(fd[0]);
+        while(1){
+            strcat(mensagem, "a");
+            write(fd[1], mensagem, sizeof(mensagem));
+            printf("\nFilho de escrita escreveu %s\n", mensagem);
+            sleep(2);
+        }
+        exit(0);
+    }
+
+    // Pai
+    close(fd[0]); close(fd[1]);
+    wait(NULL);
+
+    return 0;
+}
+
+Compilação e execução
+$ gcc ex04.c -o exe
+$ ./exe
+
+Resultado
+Filho de escrita escreveu Sequência de a's: a
+Filho de leitura 2 leu
+Filho de leitura 1 leu Sequência de a's: a
+
+Filho de escrita escreveu Sequência de a's: aa
+Filho de leitura 1 leu Sequência de a's: aa
+Filho de leitura 2 leu
+
+Filho de escrita escreveu Sequência de a's: aaa
+
+Filho de escrita escreveu Sequência de a's: aaaa
+Filho de leitura 1 leu Sequência de a's: aaa
+Filho de leitura 2 leu
+...
+
+Conclusão
+Nesse programa, foram criados 3 processos-filhos, sendo 2 deles para leitura e 1 para escrita. 
+Após fazer a leitura, os filhos de leitura esperam 2 segundos para fazerem uma nova leitura.
+Após fazer uma escrita, o filho de escrita espera 4 segundos para fazer uma nova escrita.
+O que acontece é que um dos filhos de leitura realiza a leitura antes do outro, o que faz com que o outro tente ler alguma mensagem mas não encontre nada a ser lido.
+
+--- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 

@@ -22,6 +22,7 @@ int main(void){
     // Filho
     else if (pid == 0){
         write(fd[1], mensagem, strlen(mensagem)+1);
+        printf("Filho escreveu: %s\n", mensagem);
         close(fd[0]); close(fd[1]);
         exit(0);
     }
@@ -29,7 +30,7 @@ int main(void){
     wait(NULL);
     
     read(fd[0], mensagem_copia, sizeof mensagem_copia);
-    printf("%s\n", mensagem_copia);
+    printf("Pai leu: %s\n", mensagem_copia);
 
     close(fd[0]); close(fd[1]);
 
