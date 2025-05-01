@@ -121,21 +121,79 @@ A fim de escrever as informações na saída, foi feito um loop de leitura com r
 
 --- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
 
-3) ...
+3) Faça um programa para criar um pipe e executar dois processos que são utilitários do Unix que se comuniquem através do pipe criado, assim como a shell faz. Exemplo: ps | wc
 
-....c
+ex03.c
 
-...
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+
+int main() {
+    int fd[2];
+    pid_t pid1, pid2;
+
+    if (pipe(fd) == -1) {
+        perror("Erro ao criar o pipe");
+        exit(1);
+    }
+
+    // Primeiro filho
+    pid1 = fork();
+    if (pid1 == -1) {
+        perror("Erro no fork do ps");
+        exit(2);
+    }
+
+    if (pid1 == 0) {
+        // Processo filho 1 (ps)
+        close(fd[0]); 
+        dup2(fd[1], STDOUT_FILENO); 
+        close(fd[1]);
+        execlp("ps", "ps", NULL); // Executa o comando ps
+        perror("Erro ao executar ps");
+        exit(3);
+    }
+
+    // Segundo filho
+    pid2 = fork();
+    if (pid2 == -1) {
+        perror("Erro no fork do wc");
+        exit(4);
+    }
+
+    if (pid2 == 0) {
+        // Processo filho 2 (wc)
+        close(fd[1]);
+        dup2(fd[0], STDIN_FILENO); // Redireciona stdin para o pipe
+        close(fd[0]); 
+        execlp("wc", "wc", NULL); // Executa o comando wc
+        perror("Erro ao executar wc");
+        exit(5);
+    }
+
+    close(fd[0]);
+    close(fd[1]);
+    wait(NULL);
+    wait(NULL);
+
+    return 0;
+}
 
 Compilação e execução
 $ gcc ....c -o exe
 $ ./exe
 
 Resultado
-...
+28  28  310
 
 Conclusão
-...
+Neste programa, criamos um pipe que conecta dois processos por meio da substituição dos descritores padrão (stdin e stdout).
+O primeiro processo (ps) envia sua saída pelo stdout, que foi redirecionado para a escrita no pipe.
+O segundo processo (wc) lê sua entrada do stdin, que foi redirecionado para a leitura do pipe.
+O resultado final é equivalente ao comando de shell ps | wc, onde a contagem de linhas, palavras e caracteres da saída do ps é feita pelo wc.
 
 --- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
 
