@@ -3,6 +3,11 @@ struct Ponto{
     float y;
 };
 
+struct Pista{
+    int num;
+    int estaOcupada;
+};
+
 struct Aeronave{
     struct Ponto ponto;
     char direcao; // W ou E
