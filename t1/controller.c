@@ -56,9 +56,10 @@ int main(void){
     // Confere se não há aeronaves com a mesma pista de destino
     int indice_pista;
     for(int i=0; i<QTD_AERONAVES; i++){
+        sleep(3); // Dá tempo para as aeronaves serem criadas
         kill(pid[i], SIGSTOP); // Começa pausando todas as aeronaves
 
-        indice_pista = buscaIndicePista(aeronaves->pista_preferida);
+        indice_pista = buscaIndicePista(aeronaves[i].pista_preferida);
         if (indice_pista == -1) perror("Aeronave deseja pousar em uma pista inexistente");
 
         // Se a pista já estiver ocupada

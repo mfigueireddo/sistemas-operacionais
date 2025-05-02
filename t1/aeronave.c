@@ -9,13 +9,29 @@
 struct Aeronave *minha_aeronave = NULL;
 float velocidade_original = 0.05;
 float velocidade = 0.05;
+
+// Flags
 int velocidade_reduzida = 0;
 int redirecionada = 0;
 
+void imprimeAeronave(struct Aeronave *aeronave){
+    printf("Coordenadas [%f, %f]\nDireção %c\nVelocidade %f\nPista preferida %d\n Status %d\nPID %d\n", 
+        aeronave->ponto.x, aeronave->ponto.y, aeronave->direcao, aeronave->velocidade, aeronave->pista_preferida, aeronave->status, aeronave->pid);
+}
+
 // Tratador de SIGUSR1 -> alterna velocidade
 void toggle_velocidade(int sig) {
+
     velocidade_reduzida = !velocidade_reduzida;
-    velocidade = velocidade_reduzida ? velocidade_original / 2 : velocidade_original;
+
+    if(velocidade_reduzida){
+        velocidade = velocidade_original/2;
+        minha_aeronave->status = AGUARDANDO;
+    }
+    else{
+        velocidade = velocidade_original;
+        minha_aeronave->status = VOANDO;
+    }
 }
 
 // Tratador de SIGUSR2 -> alterna pista de pouso
@@ -32,6 +48,7 @@ void toggle_pista(int sig) {
 
 // Inicializa posição, direção, pista preferida e velocidade
 void configurar_inicialmente(struct Aeronave *aeronave, int index) {
+
     srand(time(NULL) + index); // Para aleatoriedade diferente entre processos
 
     aeronave->pid = getpid();
@@ -51,9 +68,13 @@ void configurar_inicialmente(struct Aeronave *aeronave, int index) {
     aeronave->ponto.y = (float)(rand() % 100) / 100.0; // 0.00 a 0.99
     aeronave->velocidade = velocidade_original;
     aeronave->status = VOANDO;
+
+    imprimeAeronave(aeronave);
 }
 
 int main(int argc, char *argv[]) {
+
+    printf("Teste");
     if (argc != 3) {
         fprintf(stderr, "Uso: %s <shm_id> <index>\n", argv[0]);
         exit(1);
@@ -94,7 +115,8 @@ int main(int argc, char *argv[]) {
     printf("[Aeronave %c - PID %d] Pousou na pista %d. Encerrando processo.\n",
            'A' + index, getpid(), minha_aeronave->pista_preferida);
 
-    minha_aeronave->status = -1; // Marca como finalizada
+    // !!! ARRUMAR !!!
+    minha_aeronave->status = 2; // Marca como finalizada
     shmdt(memoria);
     return 0;
 }
