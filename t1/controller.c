@@ -27,14 +27,15 @@ int main(void){
     char str_segmento_memoria[20], str_indice_aeronave[20];
     for (int i=0; i<QTD_AERONAVES; i++){
 
-        pid[0] = fork();
-        if(pid<0){ perror("Erro no fork"); return 2; }
+        pid[i] = fork();
+        if(pid[i]<0){ perror("Erro no fork"); return 2; }
 
-        else if(pid==0){ // Filho
+        else if(pid[i]==0){ // Filho
             // int -> string
             sprintf(str_segmento_memoria, "%d", segmento_memoria);
             sprintf(str_indice_aeronave, "%d", i);
 
+            // Executa o programa responsável pelas aeronaves
             execlp("./aeronave", "aeronave", str_segmento_memoria, str_indice_aeronave, NULL);
             exit(1);
         }
@@ -45,7 +46,7 @@ int main(void){
 
     // Escalonamento Round-Robin
     int i = 0;
-    float distancia, x, y;
+    float distancia_x, distancia_y;
 
     // !!! DAR PRIORIDADE PARA AERONAVES PRÓXIMAS DE ATERRISAR !!!
 
@@ -59,21 +60,16 @@ int main(void){
         for(int j=0; j<QTD_AERONAVES; j++){
             if (i!=j) { // Se forem aeronaves diferentes
 
-                // !!! FAZER DISTÂNCIA PARA X e Y !!!
+                distancia_x = ptr_memoria[j].ponto.x - ptr_memoria[i].ponto.x;
+                distancia_y = ptr_memoria[j].ponto.y - ptr_memoria[i].ponto.y;
 
-                x = pow((ptr_memoria[j].ponto.x - ptr_memoria[i].ponto.x), 2);
-                y = pow((ptr_memoria[j].ponto.y - ptr_memoria[i].ponto.y), 2);
-                distancia = sqrt(x+y);
-
-                // Possível colisão entre aeronaves
-                // !!! ACHAR UMA DISTÂNCIA QUE SEJA SEGURO PARA PEDIR PARA ELAS REDUZIREM !!!
-                if (distancia < ?){
-
+                // Potencial de colisão -> Ordena redução de velocidade
+                if ( (distancia_x > 0.1 && distancia_x < 0.2) || (distancia_y > 0.1 && distancia_y < 0.2) )  
+                    
                 }
 
-                // !!! PARAR O POUSO DE UMA DAS AERONAVES SE FOR IMPOSSÍVEL EVITAR COLISÃO !!!
-                // !!! CONFERIR TAMBÉM SE A REDUÇÃO DE VELOCIDADE NÃO RESOLVERIA !!!
-                if (distancia < 0.1){
+                // Colisão eminente -> Ordena que uma das aeronaves desvie do seu trajeto
+                if (distancia_x < 0.1 || distancia_y < 0.1){
 
                 }
 
@@ -89,6 +85,8 @@ int main(void){
 
         i = (++i) % QTD_AERONAVES;
     }
+
+    // Limpa o necessário
 
     return 0;
 }
