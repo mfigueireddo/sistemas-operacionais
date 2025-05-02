@@ -20,5 +20,5 @@ struct Aeronave{
 enum StatusAeronave{
     VOANDO = 0,
     AGUARDANDO = 1,
-    REDIRECIONADO = 2
+    FINALIZADO = 2
 };

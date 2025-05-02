@@ -20,6 +20,7 @@ typedef struct Ponto Ponto;
 
 // Funções do módulo
 int buscaIndicePista(int num_pista);
+void calculaPrioridade(Aeronave *aeronaves, int *array_indices);
 
 // Variável com as pistas
 Pista pistas[QTD_PISTAS] = { {3, 0}, {6, 0}, {18, 0}, {27, 0} };
@@ -52,11 +53,10 @@ int main(void){
         }
     }
 
-    // Começa pausando todas as aeronaves
     // Confere se não há aeronaves com a mesma pista de destino
     int indice_pista;
     for(int i=0; i<QTD_AERONAVES; i++){
-        kill(pid[i], SIGSTOP);
+        kill(pid[i], SIGSTOP); // Começa pausando todas as aeronaves
 
         indice_pista = buscaIndicePista(aeronaves->pista_preferida);
         if (indice_pista == -1) perror("Aeronave deseja pousar em uma pista inexistente");
@@ -69,65 +69,71 @@ int main(void){
     }
 
     // Escalonamento Round-Robin
-    int i = 0;
+    int idx = 0;
     float distancia_x, distancia_y;
 
-    // !!! DAR PRIORIDADE PARA AERONAVES PRÓXIMAS DE ATERRISAR !!!
+    // Ordem das aeronaves mais próximas ao destino
+    int indices_ordenados[QTD_AERONAVES];
+    for(int i=0; i<QTD_AERONAVES; i++) indices_ordenados[i] = i;
+    calculaPrioridade(aeronaves, indices_ordenados);
     
-
     while(1){
 
-        // Confere se a aeronave já pousou
-        // !!! COLOCAR LÁ PRO FUNDO !!!
-        // !!! ISSO SÓ DEVE ACONTECER 1X !!!
-        // !!! DEPOIS DISSO IDENTIFICAR QUE O PROCESSO JÁ FOI FINALIZADO E SÓ PULAR ELE !!!
-        int status;
-        if(waitpid(pid[i], status, WNOHANG) > 0){ 
-
-            // Libera a pista
-            indice_pista = buscaIndicePista(aeronaves[i].pista_preferida);
-            pistas[indice_pista].estaOcupada = 0;
-
-            // Se tiver alguma aeronave esperando, manda ela continuar
-            for(int j=0; j<QTD_AERONAVES; j++){
-                if(i!=j && aeronaves[i].pista_preferida == aeronaves[j].pista_preferida && aeronaves[j].status == AGUARDANDO){
-                    kill(pid[j], SIGUSR1);
-                    if (aeronaves[i].status != VOANDO) perror("Avião não acelerou quando solicitado"); // Confere a ação foi efetiva
-                }
-            }
-
-            continue;
-        }
+        // Pula todos os procedimentos se a aeronave tiver pousado
+        if(aeronaves[indices_ordenados[idx]].status == FINALIZADO){ ++idx; idx = idx % QTD_AERONAVES; continue; }
 
         // Controle de colisão
         for(int j=0; j<QTD_AERONAVES; j++){
-            // Se forem aeronaves diferentes e estiverem do mesmo lado
-            if (i!=j && aeronaves[i].direcao == aeronaves[j].direcao) {
 
-                distancia_x = fabs(aeronaves[j].ponto.x - aeronaves[i].ponto.x);
-                distancia_y = fabs(aeronaves[j].ponto.y - aeronaves[i].ponto.y);
+            // Se forem aeronaves diferentes e estiverem do mesmo lado
+            if (indices_ordenados[idx]!=j && aeronaves[indices_ordenados[idx]].direcao == aeronaves[j].direcao) {
+
+                distancia_x = fabs(aeronaves[j].ponto.x - aeronaves[indices_ordenados[idx]].ponto.x);
+                distancia_y = fabs(aeronaves[j].ponto.y - aeronaves[indices_ordenados[idx]].ponto.y);
 
                 // Potencial de colisão -> Ordena redução de velocidade
                 if ( (distancia_x > 0.1 && distancia_x < 0.2) || (distancia_y > 0.1 && distancia_y < 0.2) ){
-                    kill(pid[i], SIGUSR1);
-                    if (aeronaves[i].status != AGUARDANDO) perror("Avião não desacelerou quando solicitado"); // Confere a ação foi efetiva
+                    kill(pid[indices_ordenados[idx]], SIGUSR1);
+                    if (aeronaves[indices_ordenados[idx]].status != AGUARDANDO) perror("Avião não desacelerou quando solicitado"); // Confere a ação foi efetiva
                 }
 
                 // Colisão eminente -> Ordena que uma das aeronaves remeta o pouso
                 else if (distancia_x < 0.1 || distancia_y < 0.1){
-                    kill(pid[i], SIGKILL);
+                    kill(pid[indices_ordenados[idx]], SIGKILL);
                 }
             }
         }
 
-        kill(pid[i], SIGCONT);
+        kill(pid[indices_ordenados[idx]], SIGCONT);
         sleep(1); // !!! ESSE TEMPO É SUFICIENTE? !!!
-        kill(pid[i], SIGSTOP);
+        kill(pid[indices_ordenados[idx]], SIGSTOP);
 
-        i = (++i) % QTD_AERONAVES;
+        // Confere se a aeronave já pousou
+        int status;
+        if(waitpid(pid[indices_ordenados[idx]], &status, WNOHANG) > 0){ 
+
+            aeronaves[indices_ordenados[idx]].status = FINALIZADO;
+
+            // Libera a pista
+            indice_pista = buscaIndicePista(aeronaves[indices_ordenados[idx]].pista_preferida);
+            pistas[indice_pista].estaOcupada = 0;
+
+            // Se tiver alguma aeronave esperando, manda ela continuar
+            for(int j=0; j<QTD_AERONAVES; j++){
+                if(indices_ordenados[idx]!=j && aeronaves[indices_ordenados[idx]].pista_preferida == aeronaves[j].pista_preferida && aeronaves[j].status == AGUARDANDO){
+                    kill(pid[j], SIGUSR1);
+                    if (aeronaves[indices_ordenados[idx]].status != VOANDO) perror("Avião não acelerou quando solicitado"); // Confere a ação foi efetiva
+                }
+            }
+            
+        }
+
+        ++idx; idx = idx % QTD_AERONAVES;
     }
 
-    // !!! LIMPAR O NECESSÁRIO !!!
+    // Libera as áreas de memória
+    shmdt(aeronaves);
+    shmctl(segmento_memoria, IPC_RMID, NULL);
 
     return 0;
 }
@@ -139,7 +145,7 @@ int buscaIndicePista(int num_pista){
     return -1;
 }
 
-void calculaPrioridade(Aeronave *aeronaves){
+void calculaPrioridade(Aeronave *aeronaves, int *array_indices){
 
     Ponto destino = {0.5, 0.5};
     float distancia[QTD_AERONAVES], dx[QTD_AERONAVES], dy[QTD_AERONAVES];
@@ -153,14 +159,16 @@ void calculaPrioridade(Aeronave *aeronaves){
     }
 
     // Bubble sort com base na distância ao destino
+    int temp;
     for (int i = 0; i < QTD_AERONAVES - 1; i++) {
         for (int j = 0; j < QTD_AERONAVES - 1 - i; j++) {
-            if (distancia[indices[j]] > distancia[indices[j + 1]]) {
-                // troca os índices
-                int temp = indices[j];
-                indices[j] = indices[j + 1];
-                indices[j + 1] = temp;
+
+            if (distancia[array_indices[j]] > distancia[array_indices[j + 1]]) {
+                temp = array_indices[j];
+                array_indices[j] = array_indices[j + 1];
+                array_indices[j + 1] = temp;
             }
+
         }
     }
 
