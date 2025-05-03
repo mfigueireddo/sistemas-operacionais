@@ -199,10 +199,6 @@ void controlePistas(Aeronave *aeronaves, int *pids){
 
 void controleColisao(Aeronave *aeronaves, int i, int *pids){
 
-    // Projeta a próxima posição da aeronave
-    float x_projetado = movimentaX(aeronaves[i]);
-    float y_projetado = movimentaY(aeronaves[i]);
-
     float distancia_x, distancia_y;
 
     for(int j=0; j<QTD_AERONAVES; j++){
@@ -221,12 +217,16 @@ void controleColisao(Aeronave *aeronaves, int i, int *pids){
                 break;
             }
 
+            // Projeta a próxima posição da aeronave
+            float x_projetado = movimentaX(aeronaves[i]);
+            float y_projetado = movimentaY(aeronaves[i]);
+
             distancia_x = fabs(aeronaves[j].ponto.x - x_projetado);
             distancia_y = fabs(aeronaves[j].ponto.y - y_projetado);
 
             // Potencial de colisão -> Ordena redução de velocidade
-            if ( (distancia_x > 0.1 && distancia_x < 0.2) && (distancia_y > 0.1 && distancia_y < 0.2) ){
-                printf("\n⚠️ Potencial de colisão identificado entre aeronaves %d [%.2f, %.2f] e %d [%.2f, %.2f]. Ordenando redução da aeronave %d ⚠️\n", i, aeronaves[i].ponto.x, aeronaves[i].ponto.y, j, aeronaves[j].ponto.x, aeronaves[j].ponto.y, i);
+            if (distancia_x < 0.1  && distancia_y < 0.1 && aeronaves[i].status != AGUARDANDO){
+                printf("\n⚠️ Potencial de colisão identificado entre aeronaves %d [%.2f, %.2f]->[%.2f, %.2f] e %d [%.2f, %.2f]. Ordenando redução da aeronave %d ⚠️\n", i, aeronaves[i].ponto.x, aeronaves[i].ponto.y, x_projetado, y_projetado, aeronaves[j].ponto.x, aeronaves[j].ponto.y, i);
                 kill(pids[i], SIGCONT);
                 kill(pids[i], SIGUSR1);
                 sleep(1);
@@ -235,7 +235,17 @@ void controleColisao(Aeronave *aeronaves, int i, int *pids){
                 // Confere se o avião desacelerou
                 if (aeronaves[i].status != AGUARDANDO) perror("Avião não desacelerou quando solicitado");
 
-                continue;
+                break;
+            }
+            else if (distancia_x > 0.1  && distancia_y > 0.1 && aeronaves[i].status == AGUARDANDO){
+                printf("\n⚠️ Não há mais potencial de colisão para a aeronave %d. Ordenando aumento da velocidade ⚠️\n");
+                kill(pids[i], SIGCONT);
+                kill(pids[i], SIGUSR1);
+                sleep(1);
+                kill(pids[i], SIGSTOP);
+
+                // Confere se o avião acelerou
+                if (aeronaves[i].status != VOANDO) perror("Avião não acelerou quando solicitado");
             }
         }
     }
