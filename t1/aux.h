@@ -16,13 +16,15 @@ struct Aeronave{
     int pista_preferida;
     int status;
     int pid;
+    int delay;
 };
 
 enum StatusAeronave{
     VOANDO = 0,
     AGUARDANDO = 1,
     FINALIZADO = 2,
-    REMETIDA = 3
+    REMETIDA = 3,
+    DELAY = 4
 };
 
 float movimentaX(Aeronave *aeronave);

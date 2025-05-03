@@ -146,7 +146,8 @@ void configurar_inicialmente(struct Aeronave *aeronave, int index) {
 
     aeronave->ponto.y = (float)(rand() % 11) / 10.0;
     aeronave->velocidade = velocidade_original;
-    aeronave->status = VOANDO;
+    aeronave->delay = rand() % 3;
+    aeronave->status = DELAY;
 
     printf("🟢 Aeronave criada com sucesso 🟢\n");
     imprimeAeronave(aeronave);
@@ -201,6 +202,8 @@ const char* stringStatus(int status){
             return "FINALIZADO";
         case REMETIDA:
             return "REMETIDA";
+        case DELAY:
+            return "DELAY";
         default:
             return "DESCONHECIDO";
     }

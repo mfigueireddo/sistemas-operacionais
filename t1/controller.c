@@ -7,6 +7,7 @@
 #include <sys/wait.h> // waitpid
 #include <signal.h> // SIGSTOP, SIGCONT, SIGUSR1, SIGKILL, ...
 #include <math.h> // sqrt
+#include <time.h> // time()
 
 // Estruturas personalizadas do trabalho
 #include "aux.h"
@@ -55,17 +56,36 @@ int main(void){
     calculaPrioridade(aeronaves, indices_ordenados);
 
     // Escalonamento Round-Robin
-    int i, processos_finalizados = 0, contador = 0;
+    int i, delay_check, processos_finalizados = 0, contador = 0;
 
     sleep(1);
 
-    // !!! QUANDO EU CONFIRO SE UMA AERONAVE QUE ESTÁ AGUARDANDO PODE CONTINUAR? !!!
+    time_t inicioVoos = time(NULL);
+    time_t agora;
+
+    // Fazer aeronave = aeronaves[i]
     while(1){
 
         i = indices_ordenados[contador];
 
-        // Pula todos os procedimentos se a aeronave tiver pousado
-        if(aeronaves[i].status == FINALIZADO){ 
+        // Se a aeronave ainda não teve sua entrada no espaço aéreo permitida
+        if(aeronaves[i].status == DELAY){
+            agora = time(NULL);
+            delay_check = (int)(agora-inicioVoos);
+
+            // Se a aeronave puder entrar no espaço aéreo
+            if (aeronaves[i].delay > delay_check){
+                aeronaves[i].status == VOANDO;
+                calculaPrioridade(aeronaves, indices_ordenados);
+                contador = -1;
+            }
+            else{
+                printf("\n▶️ Aeronave %d em delay\n", aeronaves[i].id);
+            }
+        }
+
+        // Pula tudo se a aeronave não tiver que ser considerada
+        if(aeronaves[i].status != VOANDO && aeronaves[i].status != AGUARDANDO ){ 
             ++contador; contador = contador % QTD_AERONAVES; 
             continue; 
         }
