@@ -21,7 +21,6 @@ struct Aeronave{
 enum StatusAeronave{
     VOANDO = 0,
     AGUARDANDO = 1,
-    FINALIZADO = 2
+    FINALIZADO = 2,
+    REMETIDA = 3
 };
-
-// !!! FAZER FUNÇÃO PARA PEGAR O ESTADO COM BASE NO NÚMERO !!!

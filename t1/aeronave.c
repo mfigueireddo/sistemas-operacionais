@@ -7,10 +7,11 @@
 #include "aux.h"
 
 // Funções do módulo
-void imprimeAeronave(struct Aeronave *aeronave);
 void toggle_velocidade(int sig);
 void toggle_pista(int sig);
 void configurar_inicialmente(struct Aeronave *aeronave, int index);
+void imprimeAeronave(struct Aeronave *aeronave);
+const char* stringStatus(int status);
 
 // Constantes do módulo
 struct Aeronave *minha_aeronave = NULL;
@@ -46,7 +47,6 @@ int main(int argc, char *argv[]) {
     // Para que a aeronave não se mova sem permissão
     sleep(6);
 
-    // !!! NÃO ANDA EM Y? !!!
     while (1) {
 
         // Se a aeronave estiver AGUARDANDO, não anda
@@ -54,19 +54,30 @@ int main(int argc, char *argv[]) {
 
         printf("\n▶️ Mudança de posição - Aeronave %d [%f, %f] -> ", minha_aeronave->id, minha_aeronave->ponto.x, minha_aeronave->ponto.y);
 
-        if (minha_aeronave->direcao == 'E') {
+        // Move em X
+        if (minha_aeronave->direcao == 'E' && minha_aeronave->ponto.x > 0.5){
             minha_aeronave->ponto.x -= velocidade;
-            printf("[%f, %f]\n", minha_aeronave->ponto.x, minha_aeronave->ponto.y);
-
-            if (minha_aeronave->ponto.x <= 0.5) break;
-        } 
-        
-        else {
-            minha_aeronave->ponto.x += velocidade;
-            printf("[%f, %f]\n", minha_aeronave->ponto.x, minha_aeronave->ponto.y);
-            
-            if (minha_aeronave->ponto.x >= 0.5) break;
+            if (minha_aeronave->ponto.x < 0.5) minha_aeronave->ponto.x = 0.5;
         }
+        else if(minha_aeronave->direcao == 'W' && minha_aeronave->ponto.x < 0.5){
+            minha_aeronave->ponto.x += velocidade;
+            if (minha_aeronave->ponto.x > 0.5) minha_aeronave->ponto.x = 0.5;
+        }
+
+        // Move em Y
+        if (minha_aeronave->ponto.y < 0.5){
+            minha_aeronave->ponto.y += velocidade;
+            if (minha_aeronave->ponto.y > 0.5) minha_aeronave->ponto.y = 0.5;
+        }
+        else if (minha_aeronave->ponto.y > 0.5){
+            minha_aeronave->ponto.y -= velocidade;
+            if (minha_aeronave->ponto.y < 0.5) minha_aeronave->ponto.y = 0.5;
+        }
+
+        printf("[%f, %f]\n", minha_aeronave->ponto.x, minha_aeronave->ponto.y);
+
+        // Confere se chegou no destino
+        if (minha_aeronave->ponto.x == 0.5 && minha_aeronave->ponto.y == 0.5) break;
 
         // Para que a aeronave não avance mais de 1 unidade por vez
         sleep(3);
@@ -78,10 +89,6 @@ int main(int argc, char *argv[]) {
     shmdt(memoria);
 
     return 0;
-}
-
-void imprimeAeronave(struct Aeronave *aeronave){
-    printf("ID %d Coordenadas [%.2f, %.2f] Direção %c Velocidade %.1f Pista preferida %d Status %d PID %d\n", aeronave->id, aeronave->ponto.x, aeronave->ponto.y, aeronave->direcao, aeronave->velocidade, aeronave->pista_preferida, aeronave->status, aeronave->pid);
 }
 
 void toggle_velocidade(int sig) {
@@ -157,4 +164,24 @@ void configurar_inicialmente(struct Aeronave *aeronave, int index) {
 
     printf("🟢 Aeronave criada com sucesso 🟢\n");
     imprimeAeronave(aeronave);
+}
+
+void imprimeAeronave(struct Aeronave *aeronave){
+    printf("ID %d Coordenadas [%.2f, %.2f] Direção %c Velocidade %.1f Pista preferida %d Status %s PID %d\n", aeronave->id, aeronave->ponto.x, aeronave->ponto.y, aeronave->direcao, aeronave->velocidade, aeronave->pista_preferida, stringStatus(aeronave->status), aeronave->pid);
+}
+
+const char* stringStatus(int status){
+
+    switch (status) {
+        case VOANDO:
+            return "VOANDO";
+        case AGUARDANDO:
+            return "AGUARDANDO";
+        case FINALIZADO:
+            return "FINALIZADO";
+        case REMETIDA:
+            return "REMETIDA";
+        default:
+            return "DESCONHECIDO";
+    }
 }
