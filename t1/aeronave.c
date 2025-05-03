@@ -6,37 +6,114 @@
 #include <time.h>
 #include "aux.h"
 
+// Funções do módulo
+void imprimeAeronave(struct Aeronave *aeronave);
+void toggle_velocidade(int sig);
+void toggle_pista(int sig);
+void configurar_inicialmente(struct Aeronave *aeronave, int index);
+
+// Constantes do módulo
 struct Aeronave *minha_aeronave = NULL;
 float velocidade_original = 0.05;
 float velocidade = 0.05;
 
-// Flags
+// Flags do módulo
 int velocidade_reduzida = 0;
 int redirecionada = 0;
 
-void imprimeAeronave(struct Aeronave *aeronave){
-    printf("Coordenadas [%f, %f]\nDireção %c\nVelocidade %f\nPista preferida %d\n Status %d\nPID %d\n", 
-        aeronave->ponto.x, aeronave->ponto.y, aeronave->direcao, aeronave->velocidade, aeronave->pista_preferida, aeronave->status, aeronave->pid);
+int main(int argc, char *argv[]) {
+
+    // Confere se os argumento necessários foram passados
+    if (argc != 3) { fprintf(stderr, "Uso correto: %s <shm_id> <index>\n", argv[0]); exit(1); }
+
+    // Guarda os argumentos passados
+    int shm_id = atoi(argv[1]);
+    int index = atoi(argv[2]);
+
+    // Cria um ponteiro para a memória compartilhada
+    struct Aeronave *memoria = ( struct Aeronave *) shmat(shm_id, NULL, 0);
+    if (memoria == (void *)-1) { perror("Erro no shmat"); exit(1); }
+
+    // Cria um ponteiro para o espaço reservado para a aeronave
+    minha_aeronave = &memoria[index];
+
+    configurar_inicialmente(minha_aeronave, index);
+
+    // Instala tratadores de sinal
+    signal(SIGUSR1, toggle_velocidade);
+    signal(SIGUSR2, toggle_pista);
+
+    // Para que a aeronave não se mova sem permissão
+    sleep(6);
+
+    // !!! NÃO ANDA EM Y? !!!
+    while (1) {
+
+        // Se a aeronave estiver AGUARDANDO, não anda
+        if(minha_aeronave->status != VOANDO){ printf("\n▶️ Aeronave %d não andou porque está esperando permissão\n", minha_aeronave->id); sleep(3); }
+
+        printf("\n▶️ Mudança de posição - Aeronave %d [%f, %f] -> ", minha_aeronave->id, minha_aeronave->ponto.x, minha_aeronave->ponto.y);
+
+        if (minha_aeronave->direcao == 'E') {
+            minha_aeronave->ponto.x -= velocidade;
+            printf("[%f, %f]\n", minha_aeronave->ponto.x, minha_aeronave->ponto.y);
+
+            if (minha_aeronave->ponto.x <= 0.5) break;
+        } 
+        
+        else {
+            minha_aeronave->ponto.x += velocidade;
+            printf("[%f, %f]\n", minha_aeronave->ponto.x, minha_aeronave->ponto.y);
+            
+            if (minha_aeronave->ponto.x >= 0.5) break;
+        }
+
+        // Para que a aeronave não avance mais de 1 unidade por vez
+        sleep(3);
+    }
+
+    printf("\n⏹️ Aeronave %d pousou na pista %d. Encerrando processo ⏹️\n", minha_aeronave->id, minha_aeronave->pista_preferida);
+    minha_aeronave->status = FINALIZADO;
+
+    shmdt(memoria);
+
+    return 0;
 }
 
-// Tratador de SIGUSR1 -> alterna velocidade
+void imprimeAeronave(struct Aeronave *aeronave){
+    printf("ID %d Coordenadas [%.2f, %.2f] Direção %c Velocidade %.1f Pista preferida %d Status %d PID %d\n", aeronave->id, aeronave->ponto.x, aeronave->ponto.y, aeronave->direcao, aeronave->velocidade, aeronave->pista_preferida, aeronave->status, aeronave->pid);
+}
+
 void toggle_velocidade(int sig) {
 
     velocidade_reduzida = !velocidade_reduzida;
 
     if(velocidade_reduzida){
-        velocidade = velocidade_original/2;
+        printf("\n🔁 Aeronave %d aguardando permissão para continuar 🔁\n", minha_aeronave->id);
+        printf("\n🔁 Velocidade da aeronave %d alterada - %f -> ", minha_aeronave->id, minha_aeronave->velocidade);
+
+        velocidade = 0;
         minha_aeronave->status = AGUARDANDO;
     }
     else{
+        printf("\n🔁 Aeronave %d continuando o trajeto 🔁\n", minha_aeronave->id);
+        printf("\n🔁 Velocidade da aeronave %d alterada - %f -> ", minha_aeronave->id, minha_aeronave->velocidade);
+
         velocidade = velocidade_original;
         minha_aeronave->status = VOANDO;
     }
+
+    printf("%f 🔁\n", minha_aeronave->velocidade);
+
+    // Avião espera um pouco pra andar se ele teve que mudar a velocidade
+    sleep(5);
 }
 
-// Tratador de SIGUSR2 -> alterna pista de pouso
 void toggle_pista(int sig) {
+
     redirecionada = !redirecionada;
+
+    printf("\n🔁 Pista da aeronave %d alterada - %d -> ", minha_aeronave->id, minha_aeronave->pista_preferida);
 
     if (redirecionada) {
         if (minha_aeronave->pista_preferida == 6) minha_aeronave->pista_preferida = 27;
@@ -44,12 +121,21 @@ void toggle_pista(int sig) {
         else if (minha_aeronave->pista_preferida == 18) minha_aeronave->pista_preferida = 3;
         else if (minha_aeronave->pista_preferida == 3) minha_aeronave->pista_preferida = 18;
     }
+
+    printf("%d🔁\n", minha_aeronave->pista_preferida);
+
+    // Avião espera um pouco pra andar se ele teve que mudar de pista
+    sleep(5);
 }
 
-// Inicializa posição, direção, pista preferida e velocidade
 void configurar_inicialmente(struct Aeronave *aeronave, int index) {
 
-    srand(time(NULL) + index); // Para aleatoriedade diferente entre processos
+    printf("\n🔴 Criando aeronave 🔴\n");
+
+    // Para aleatoriedade diferente entre processos
+    srand(time(NULL) + index); 
+
+    aeronave->id = index;
 
     aeronave->pid = getpid();
 
@@ -65,58 +151,10 @@ void configurar_inicialmente(struct Aeronave *aeronave, int index) {
         aeronave->pista_preferida = (rand() % 2 == 0) ? 6 : 27;
     }
 
-    aeronave->ponto.y = (float)(rand() % 100) / 100.0; // 0.00 a 0.99
+    aeronave->ponto.y = (float)(rand() % 11) / 10.0;
     aeronave->velocidade = velocidade_original;
     aeronave->status = VOANDO;
 
+    printf("🟢 Aeronave criada com sucesso 🟢\n");
     imprimeAeronave(aeronave);
-}
-
-int main(int argc, char *argv[]) {
-
-    printf("Teste");
-    if (argc != 3) {
-        fprintf(stderr, "Uso: %s <shm_id> <index>\n", argv[0]);
-        exit(1);
-    }
-
-    int shm_id = atoi(argv[1]);
-    int index = atoi(argv[2]);
-
-    struct Aeronave *memoria = ( struct Aeronave *) shmat(shm_id, NULL, 0);
-    if (memoria == (void *) -1) {
-        perror("shmat");
-        exit(1);
-    }
-
-    minha_aeronave = &memoria[index];
-
-    configurar_inicialmente(minha_aeronave, index);
-
-    // Instala tratadores de sinal
-    signal(SIGUSR1, toggle_velocidade);
-    signal(SIGUSR2, toggle_pista);
-
-    printf("[Aeronave %c - PID %d] Iniciou na direção %c. Pista preferida: %d\n",
-           'A' + index, getpid(), minha_aeronave->direcao, minha_aeronave->pista_preferida);
-
-    // Loop principal de voo
-    while (1) {
-        if (minha_aeronave->direcao == 'E') {
-            minha_aeronave->ponto.x -= velocidade;
-            if (minha_aeronave->ponto.x <= 0.5) break;
-        } else {
-            minha_aeronave->ponto.x += velocidade;
-            if (minha_aeronave->ponto.x >= 0.5) break;
-        }
-        sleep(1);
-    }
-
-    printf("[Aeronave %c - PID %d] Pousou na pista %d. Encerrando processo.\n",
-           'A' + index, getpid(), minha_aeronave->pista_preferida);
-
-    // !!! ARRUMAR !!!
-    minha_aeronave->status = 2; // Marca como finalizada
-    shmdt(memoria);
-    return 0;
 }

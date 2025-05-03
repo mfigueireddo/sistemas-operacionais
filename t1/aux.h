@@ -9,6 +9,7 @@ struct Pista{
 };
 
 struct Aeronave{
+    int id;
     struct Ponto ponto;
     char direcao; // W ou E
     float velocidade;
@@ -22,3 +23,5 @@ enum StatusAeronave{
     AGUARDANDO = 1,
     FINALIZADO = 2
 };
+
+// !!! FAZER FUNÇÃO PARA PEGAR O ESTADO COM BASE NO NÚMERO !!!
