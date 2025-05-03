@@ -24,3 +24,6 @@ enum StatusAeronave{
     FINALIZADO = 2,
     REMETIDA = 3
 };
+
+float movimentaX(Aeronave *aeronave);
+float movimentaY(Aeronave *aeronave);

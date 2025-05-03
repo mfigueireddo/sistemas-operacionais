@@ -13,6 +13,9 @@ void configurar_inicialmente(struct Aeronave *aeronave, int index);
 void imprimeAeronave(struct Aeronave *aeronave);
 const char* stringStatus(int status);
 
+// 
+typedef struct Aeronave Aeronave;
+
 // Constantes do módulo
 struct Aeronave *minha_aeronave = NULL;
 float velocidade_original = 0.05;
@@ -54,25 +57,8 @@ int main(int argc, char *argv[]) {
 
         printf("\n▶️ Mudança de posição - Aeronave %d [%f, %f] -> ", minha_aeronave->id, minha_aeronave->ponto.x, minha_aeronave->ponto.y);
 
-        // Move em X
-        if (minha_aeronave->direcao == 'E' && minha_aeronave->ponto.x > 0.5){
-            minha_aeronave->ponto.x -= velocidade;
-            if (minha_aeronave->ponto.x < 0.5) minha_aeronave->ponto.x = 0.5;
-        }
-        else if(minha_aeronave->direcao == 'W' && minha_aeronave->ponto.x < 0.5){
-            minha_aeronave->ponto.x += velocidade;
-            if (minha_aeronave->ponto.x > 0.5) minha_aeronave->ponto.x = 0.5;
-        }
-
-        // Move em Y
-        if (minha_aeronave->ponto.y < 0.5){
-            minha_aeronave->ponto.y += velocidade;
-            if (minha_aeronave->ponto.y > 0.5) minha_aeronave->ponto.y = 0.5;
-        }
-        else if (minha_aeronave->ponto.y > 0.5){
-            minha_aeronave->ponto.y -= velocidade;
-            if (minha_aeronave->ponto.y < 0.5) minha_aeronave->ponto.y = 0.5;
-        }
+        minha_aeronave->ponto.x = movimentaX(minha_aeronave);
+        minha_aeronave->ponto.y = movimentaY(minha_aeronave);
 
         printf("[%f, %f]\n", minha_aeronave->ponto.x, minha_aeronave->ponto.y);
 
@@ -164,6 +150,40 @@ void configurar_inicialmente(struct Aeronave *aeronave, int index) {
 
     printf("🟢 Aeronave criada com sucesso 🟢\n");
     imprimeAeronave(aeronave);
+}
+
+float movimentaX(Aeronave *aeronave){
+
+    float novo_x;
+
+    if (aeronave->direcao == 'E' && aeronave->ponto.x > 0.5){
+        novo_x -= aeronave->velocidade;
+        if (novo_x < 0.5) novo_x = 0.5;
+    }
+
+    else if(aeronave->direcao == 'W' && aeronave->ponto.x < 0.5){
+        novo_x += aeronave->velocidade;
+        if (novo_x > 0.5) novo_x = 0.5;
+    }
+
+    return novo_x;
+}
+
+float movimentaY(Aeronave *aeronave){
+
+    float novo_y;
+
+    if (aeronave->ponto.y < 0.5){
+        novo_y += aeronave->velocidade;
+        if (novo_y > 0.5) novo_y = 0.5;
+    }
+    else if (minha_aeronave->ponto.y > 0.5){
+        novo_y -= aeronave->velocidade;
+        if (novo_y < 0.5) novo_y = 0.5;
+    }
+
+    return novo_y;
+
 }
 
 void imprimeAeronave(struct Aeronave *aeronave){

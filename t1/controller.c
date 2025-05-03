@@ -82,7 +82,7 @@ int main(void){
 
         // Se a aeronave tiver pousado
         if(aeronaves[i].status == FINALIZADO){ 
-            
+
             processos_finalizados++;
 
             // Libera a pista
@@ -199,15 +199,30 @@ void controlePistas(Aeronave *aeronaves, int *pids){
 
 void controleColisao(Aeronave *aeronaves, int i, int *pids){
 
+    // Projeta a próxima posição da aeronave
+    float x_projetado = movimentaX(aeronaves[i]);
+    float y_projetado = movimentaY(aeronaves[i]);
+
     float distancia_x, distancia_y;
 
     for(int j=0; j<QTD_AERONAVES; j++){
 
         // Se forem aeronaves diferentes, estiverem do mesmo lado e não tiverem pousado
-        if (i!=j && aeronaves[i].direcao == aeronaves[j].direcao && aeronaves[j].status != FINALIZADO) {
+        if (i!=j && aeronaves[i].direcao == aeronaves[j].direcao && aeronaves[j].status != FINALIZADO && aeronaves[j].status != REMETIDA) {
 
-            distancia_x = fabs(aeronaves[j].ponto.x - aeronaves[i].ponto.x);
+            distancia_x = fabs(aeronaves[j].ponto.x - aeronaves[i].ponto.y);
             distancia_y = fabs(aeronaves[j].ponto.y - aeronaves[i].ponto.y);
+
+            // Colisão eminente -> Ordena que uma das aeronaves remeta o pouso
+            if (distancia_x < 0.1 && distancia_y < 0.1){
+                printf("\n⚠️ Colisão eminente entre aeronaves %d [%.2f, %.2f] e %d [%.2f, %.2f]. Ordenando que a aeronave %d remeta o pouso ⚠️\n", i, aeronaves[i].ponto.x, aeronaves[i].ponto.y, j, aeronaves[j].ponto.x, aeronaves[j].ponto.y, i);
+                kill(pids[i], SIGKILL);
+                aeronaves[i].status = REMETIDA;
+                break;
+            }
+
+            distancia_x = fabs(aeronaves[j].ponto.x - x_projetado);
+            distancia_y = fabs(aeronaves[j].ponto.y - y_projetado);
 
             // Potencial de colisão -> Ordena redução de velocidade
             if ( (distancia_x > 0.1 && distancia_x < 0.2) && (distancia_y > 0.1 && distancia_y < 0.2) ){
@@ -219,14 +234,8 @@ void controleColisao(Aeronave *aeronaves, int i, int *pids){
 
                 // Confere se o avião desacelerou
                 if (aeronaves[i].status != AGUARDANDO) perror("Avião não desacelerou quando solicitado");
-            }
 
-            // Colisão eminente -> Ordena que uma das aeronaves remeta o pouso
-            else if (distancia_x < 0.1 && distancia_y < 0.1){
-                printf("\n⚠️ Colisão eminente entre aeronaves %d [%.2f, %.2f] e %d [%.2f, %.2f]. Ordenando que a aeronave %d remeta o pouso ⚠️\n", i, aeronaves[i].ponto.x, aeronaves[i].ponto.y, j, aeronaves[j].ponto.x, aeronaves[j].ponto.y, i);
-                kill(pids[i], SIGKILL);
-                aeronaves[i].status = REMETIDA;
-                break;
+                continue;
             }
         }
     }
