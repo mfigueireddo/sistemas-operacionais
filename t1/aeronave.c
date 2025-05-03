@@ -10,8 +10,6 @@
 void toggle_velocidade(int sig);
 void toggle_pista(int sig);
 void configurar_inicialmente(struct Aeronave *aeronave, int index);
-void imprimeAeronave(struct Aeronave *aeronave);
-const char* stringStatus(int status);
 
 // 
 typedef struct Aeronave Aeronave;
@@ -19,11 +17,6 @@ typedef struct Aeronave Aeronave;
 // Constantes do módulo
 struct Aeronave *minha_aeronave = NULL;
 float velocidade_original = 0.05;
-float velocidade = 0.05;
-
-// Flags do módulo
-int velocidade_reduzida = 0;
-int redirecionada = 0;
 
 int main(int argc, char *argv[]) {
 
@@ -69,7 +62,7 @@ int main(int argc, char *argv[]) {
         sleep(3);
     }
 
-    printf("\n⏹️ Aeronave %d pousou na pista %d. Encerrando processo ⏹️\n", minha_aeronave->id, minha_aeronave->pista_preferida);
+    printf("\n✅ Aeronave %d pousou na pista %d. Encerrando processo ✅\n", minha_aeronave->id, minha_aeronave->pista_preferida);
     minha_aeronave->status = FINALIZADO;
 
     shmdt(memoria);
@@ -79,20 +72,18 @@ int main(int argc, char *argv[]) {
 
 void toggle_velocidade(int sig) {
 
-    velocidade_reduzida = !velocidade_reduzida;
-
-    if(velocidade_reduzida){
+    if(minha_aeronave->status == VOANDO){
         printf("\n🔁 Aeronave %d aguardando permissão para continuar 🔁\n", minha_aeronave->id);
         printf("\n🔁 Velocidade da aeronave %d alterada - %f -> ", minha_aeronave->id, minha_aeronave->velocidade);
 
-        velocidade = 0;
+        minha_aeronave->velocidade = 0;
         minha_aeronave->status = AGUARDANDO;
     }
     else{
         printf("\n🔁 Aeronave %d continuando o trajeto 🔁\n", minha_aeronave->id);
         printf("\n🔁 Velocidade da aeronave %d alterada - %f -> ", minha_aeronave->id, minha_aeronave->velocidade);
 
-        velocidade = velocidade_original;
+        minha_aeronave->velocidade = velocidade_original;
         minha_aeronave->status = VOANDO;
     }
 
@@ -104,16 +95,12 @@ void toggle_velocidade(int sig) {
 
 void toggle_pista(int sig) {
 
-    redirecionada = !redirecionada;
-
     printf("\n🔁 Pista da aeronave %d alterada - %d -> ", minha_aeronave->id, minha_aeronave->pista_preferida);
 
-    if (redirecionada) {
-        if (minha_aeronave->pista_preferida == 6) minha_aeronave->pista_preferida = 27;
-        else if (minha_aeronave->pista_preferida == 27) minha_aeronave->pista_preferida = 6;
-        else if (minha_aeronave->pista_preferida == 18) minha_aeronave->pista_preferida = 3;
-        else if (minha_aeronave->pista_preferida == 3) minha_aeronave->pista_preferida = 18;
-    }
+    if (minha_aeronave->pista_preferida == 6) minha_aeronave->pista_preferida = 27;
+    else if (minha_aeronave->pista_preferida == 27) minha_aeronave->pista_preferida = 6;
+    else if (minha_aeronave->pista_preferida == 18) minha_aeronave->pista_preferida = 3;
+    else if (minha_aeronave->pista_preferida == 3) minha_aeronave->pista_preferida = 18;
 
     printf("%d🔁\n", minha_aeronave->pista_preferida);
 
@@ -151,60 +138,4 @@ void configurar_inicialmente(struct Aeronave *aeronave, int index) {
 
     printf("🟢 Aeronave criada com sucesso 🟢\n");
     imprimeAeronave(aeronave);
-}
-
-float movimentaX(Aeronave *aeronave){
-
-    float novo_x;
-
-    if (aeronave->direcao == 'E' && aeronave->ponto.x > 0.5){
-        novo_x -= aeronave->velocidade;
-        if (novo_x < 0.5) novo_x = 0.5;
-    }
-
-    else if(aeronave->direcao == 'W' && aeronave->ponto.x < 0.5){
-        novo_x += aeronave->velocidade;
-        if (novo_x > 0.5) novo_x = 0.5;
-    }
-
-    return novo_x;
-}
-
-float movimentaY(Aeronave *aeronave){
-
-    float novo_y;
-
-    if (aeronave->ponto.y < 0.5){
-        novo_y += aeronave->velocidade;
-        if (novo_y > 0.5) novo_y = 0.5;
-    }
-    else if (minha_aeronave->ponto.y > 0.5){
-        novo_y -= aeronave->velocidade;
-        if (novo_y < 0.5) novo_y = 0.5;
-    }
-
-    return novo_y;
-
-}
-
-void imprimeAeronave(struct Aeronave *aeronave){
-    printf("ID %d Coordenadas [%.2f, %.2f] Direção %c Velocidade %.1f Pista preferida %d Status %s PID %d\n", aeronave->id, aeronave->ponto.x, aeronave->ponto.y, aeronave->direcao, aeronave->velocidade, aeronave->pista_preferida, stringStatus(aeronave->status), aeronave->pid);
-}
-
-const char* stringStatus(int status){
-
-    switch (status) {
-        case VOANDO:
-            return "VOANDO";
-        case AGUARDANDO:
-            return "AGUARDANDO";
-        case FINALIZADO:
-            return "FINALIZADO";
-        case REMETIDA:
-            return "REMETIDA";
-        case DELAY:
-            return "DELAY";
-        default:
-            return "DESCONHECIDO";
-    }
 }

@@ -27,5 +27,7 @@ enum StatusAeronave{
     DELAY = 4
 };
 
-float movimentaX(Aeronave *aeronave);
-float movimentaY(Aeronave *aeronave);
+float movimentaX(struct Aeronave *aeronave);
+float movimentaY(struct Aeronave *aeronave);
+void imprimeAeronave(struct Aeronave *aeronave);
+const char* stringStatus(int status);
