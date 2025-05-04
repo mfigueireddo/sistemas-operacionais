@@ -58,3 +58,11 @@ const char* stringStatus(int status){
             return "DESCONHECIDO";
     }
 }
+
+int alteraPista(int pista){
+    if (pista == 6) return 27;
+    else if (pista == 27) return 6;
+    else if (pista == 18) return 3;
+    else if (pista == 3) return 18;
+    return -1;
+}

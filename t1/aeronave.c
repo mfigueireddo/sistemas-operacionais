@@ -46,14 +46,14 @@ int main(int argc, char *argv[]) {
     while (1) {
 
         // Se a aeronave estiver AGUARDANDO, não anda
-        if(minha_aeronave->status != VOANDO){ printf("\n▶️ Aeronave %d não andou porque está esperando permissão\n", minha_aeronave->id); sleep(3); }
+        if(minha_aeronave->status != VOANDO){ sleep(3); continue;}
 
-        printf("\n▶️ Mudança de posição - Aeronave %d [%f, %f] -> ", minha_aeronave->id, minha_aeronave->ponto.x, minha_aeronave->ponto.y);
+        printf("\n▶️ Mudança de posição - Aeronave %d [%.2f, %.2f] -> ", minha_aeronave->id, minha_aeronave->ponto.x, minha_aeronave->ponto.y);
 
         minha_aeronave->ponto.x = movimentaX(minha_aeronave);
         minha_aeronave->ponto.y = movimentaY(minha_aeronave);
 
-        printf("[%f, %f]\n", minha_aeronave->ponto.x, minha_aeronave->ponto.y);
+        printf("[%.2f, %.2f]\n", minha_aeronave->ponto.x, minha_aeronave->ponto.y);
 
         // Confere se chegou no destino
         if (minha_aeronave->ponto.x == 0.5 && minha_aeronave->ponto.y == 0.5) break;
@@ -73,39 +73,33 @@ int main(int argc, char *argv[]) {
 void toggle_velocidade(int sig) {
 
     if(minha_aeronave->status == VOANDO){
-        printf("\n🔁 Aeronave %d aguardando permissão para continuar 🔁\n", minha_aeronave->id);
-        printf("\n🔁 Velocidade da aeronave %d alterada - %f -> ", minha_aeronave->id, minha_aeronave->velocidade);
+        printf("\n🔁 Aeronave %d aguardando permissão para continuar. ", minha_aeronave->id);
+        printf("Velocidade da aeronave %d alterada - %.2f -> ", minha_aeronave->id, minha_aeronave->velocidade);
 
         minha_aeronave->velocidade = 0;
         minha_aeronave->status = AGUARDANDO;
     }
     else{
-        printf("\n🔁 Aeronave %d continuando o trajeto 🔁\n", minha_aeronave->id);
-        printf("\n🔁 Velocidade da aeronave %d alterada - %f -> ", minha_aeronave->id, minha_aeronave->velocidade);
+        printf("\n🔁 Aeronave %d continuando o trajeto ", minha_aeronave->id);
+        printf("Velocidade da aeronave %d alterada - %.2f -> ", minha_aeronave->id, minha_aeronave->velocidade);
 
         minha_aeronave->velocidade = velocidade_original;
         minha_aeronave->status = VOANDO;
     }
 
-    printf("%f 🔁\n", minha_aeronave->velocidade);
+    printf("%.2f 🔁\n", minha_aeronave->velocidade);
 
     // Avião espera um pouco pra andar se ele teve que mudar a velocidade
-    sleep(5);
+    sleep(3);
 }
 
 void toggle_pista(int sig) {
 
     printf("\n🔁 Pista da aeronave %d alterada - %d -> ", minha_aeronave->id, minha_aeronave->pista_preferida);
 
-    if (minha_aeronave->pista_preferida == 6) minha_aeronave->pista_preferida = 27;
-    else if (minha_aeronave->pista_preferida == 27) minha_aeronave->pista_preferida = 6;
-    else if (minha_aeronave->pista_preferida == 18) minha_aeronave->pista_preferida = 3;
-    else if (minha_aeronave->pista_preferida == 3) minha_aeronave->pista_preferida = 18;
+    minha_aeronave->pista_preferida = alteraPista(minha_aeronave->pista_preferida);
 
-    printf("%d🔁\n", minha_aeronave->pista_preferida);
-
-    // Avião espera um pouco pra andar se ele teve que mudar de pista
-    sleep(5);
+    printf("%d 🔁\n", minha_aeronave->pista_preferida);
 }
 
 void configurar_inicialmente(struct Aeronave *aeronave, int index) {

@@ -9,6 +9,8 @@
 #include <math.h> // sqrt
 #include <time.h> // time()
 
+#include <errno.h>
+
 // Estruturas personalizadas do trabalho
 #include "aux.h"
 typedef struct Aeronave Aeronave;
@@ -16,7 +18,10 @@ typedef struct Pista Pista;
 typedef struct Ponto Ponto;
 
 // Macros do módulo
+#ifndef QTD_AERONAVES
 #define QTD_AERONAVES 5
+#endif
+
 #define QTD_PISTAS 4
 
 // Funções do módulo
@@ -25,11 +30,14 @@ void calculaPrioridade(Aeronave *aeronaves, int *array_indices);
 void criaAeronaves(int *segmento_memoria, int *pids);
 void controlePistas(Aeronave *aeronaves, int *pids);
 void controleColisao(Aeronave *aeronaves, int i, int *pids);
+void controleEngavetamento(Aeronave *aeronaves, int *pids);
+int verificaEntrada(Aeronave *aeronaves, int i, int *pids);
 
-// Variável com as pistas
+// Variáveis globais do módulo
 Pista pistas[QTD_PISTAS] = { {3, 0}, {6, 0}, {18, 0}, {27, 0} };
-
 int processos_finalizados = 0;
+int bloqueados;
+int indices_ordenados[QTD_AERONAVES];
 
 int main(void){
 
@@ -53,19 +61,17 @@ int main(void){
     controlePistas(aeronaves, pids);
 
     // Ordem das aeronaves mais próximas ao destino
-    int indices_ordenados[QTD_AERONAVES];
     for(int i=0; i<QTD_AERONAVES; i++) indices_ordenados[i] = i;
     calculaPrioridade(aeronaves, indices_ordenados);
 
     // Escalonamento Round-Robin
     int i, delay_check, contador = 0;
 
-    sleep(1);
+    sleep(3);
 
     time_t inicioVoos = time(NULL);
     time_t agora;
 
-    // !!! Fazer aeronave = aeronaves[i]
     while(1){
 
         i = indices_ordenados[contador];
@@ -78,8 +84,9 @@ int main(void){
             // Se a aeronave puder entrar no espaço aéreo
             if (delay_check > aeronaves[i].delay){
                 aeronaves[i].status = VOANDO;
-                calculaPrioridade(aeronaves, indices_ordenados);
-                contador = -1;
+
+                // Se a aeronave tiver entrada permitida
+                if (!verificaEntrada(aeronaves, i , pids)){ printf("\n☑️ A aeronave %d teve sua entrada permitida no espaço aéreo. ☑️\n", aeronaves[i].id); }
             }
         }
 
@@ -89,8 +96,8 @@ int main(void){
             continue; 
         }
 
-        // Controle de colisão
         controleColisao(aeronaves, i, pids);
+        controleEngavetamento(aeronaves, pids);
 
         // Se a aeronave tiver permissão para andar
         if (aeronaves[i].status == VOANDO){
@@ -115,10 +122,13 @@ int main(void){
         // Condição de saída
         if(processos_finalizados == QTD_AERONAVES) break;
 
-        ++contador; contador = contador % QTD_AERONAVES;        
+        ++contador; contador = contador % QTD_AERONAVES;
+        
+        if(contador == 0) calculaPrioridade(aeronaves, indices_ordenados);
+
     }
 
-    printf("\n⚠️ Todas as aeronaves pousaram. Encerrando programa ⚠️\n");
+    printf("\n🥳 Todas as aeronaves pousaram. Encerrando programa. 🥳\n");
 
     // Libera as áreas de memória
     shmdt(aeronaves);
@@ -161,9 +171,9 @@ void calculaPrioridade(Aeronave *aeronaves, int *array_indices){
         }
     }
 
-    printf("\n⚠️ Ordem de prioridade das aeronaves: ");
+    printf("\n🕐 Ordem de prioridade das aeronaves: ");
     for(int i=0; i<QTD_AERONAVES; i++) printf("%d ", array_indices[i]);
-    printf(" ⚠️\n");
+    printf(" 🕐\n");
 
 }
 
@@ -192,7 +202,7 @@ void criaAeronaves(int *segmento_memoria, int *pids){
 
 void controlePistas(Aeronave *aeronaves, int *pids){
 
-    int indice_pista;
+    int indice_pista, indice_pista_secundaria, pista_secundaria;
 
     for(int i=0; i<QTD_AERONAVES; i++){
 
@@ -201,16 +211,23 @@ void controlePistas(Aeronave *aeronaves, int *pids){
 
         // Se a pista já estiver ocupada
         if (pistas[indice_pista].estaOcupada){
-            printf("\n❗ Solicitando que a aeronave %d (pista %d) troque de pista ❗\n", aeronaves[i].id, aeronaves[i].pista_preferida);
-            kill(pids[i], SIGCONT);
-            kill(pids[i], SIGUSR2);
-            sleep(1);
-            kill(pids[i], SIGSTOP);
-            
-            // Confere se a pista foi alterada
-            if (aeronaves[i].pista_preferida == pistas[indice_pista].num) perror("Avião não mudou de pista quando solicitado");
-        }
 
+            pista_secundaria = alteraPista(aeronaves[i].pista_preferida);
+            indice_pista_secundaria = buscaIndicePista(pista_secundaria);
+
+            // Se a outra pista estiver vaga
+            if (!pistas[indice_pista_secundaria].estaOcupada){
+                printf("\n❗ Solicitando que a aeronave %d (pista %d) troque de pista ❗\n", aeronaves[i].id, aeronaves[i].pista_preferida);
+                kill(pids[i], SIGCONT);
+                kill(pids[i], SIGUSR2);
+                sleep(1);
+                kill(pids[i], SIGSTOP);
+                
+                // Confere se a pista foi alterada
+                if (aeronaves[i].pista_preferida != pistas[indice_pista_secundaria].num) perror("Avião não mudou de pista quando solicitado");
+            }
+            else continue;
+        }
         // Se a pista estiver vazia
         else pistas[indice_pista].estaOcupada = 1;
     }
@@ -219,62 +236,54 @@ void controlePistas(Aeronave *aeronaves, int *pids){
 void controleColisao(Aeronave *aeronaves, int i, int *pids){
 
     float distancia_x, distancia_y;
-    int voando_mesma_direcao = 0;
+    int voando_mesma_direcao = 0, livre_de_colisao = 0;
 
     for(int j=0; j<QTD_AERONAVES; j++){
 
         // Se forem aeronaves diferentes, estiverem do mesmo lado e não tiverem pousado
-        if (i!=j && aeronaves[i].direcao == aeronaves[j].direcao && (aeronaves[j].status == VOANDO || aeronaves[j].status == AGUARDANDO) ) {
+        if (i == j || (aeronaves[j].status != VOANDO && aeronaves[j].status != AGUARDANDO) || aeronaves[i].direcao != aeronaves[j].direcao) continue;
+        
+        // Guarda quantas aeronaves estão voando na mesma direção
+        voando_mesma_direcao++;
 
-            // Guarda quantas aeronaves estão voando na mesma direção
-            voando_mesma_direcao++;
+        distancia_x = fabs(aeronaves[j].ponto.x - aeronaves[i].ponto.x);
+        distancia_y = fabs(aeronaves[j].ponto.y - aeronaves[i].ponto.y);
 
-            distancia_x = fabs(aeronaves[j].ponto.x - aeronaves[i].ponto.y);
-            distancia_y = fabs(aeronaves[j].ponto.y - aeronaves[i].ponto.y);
-
-            // Colisão eminente -> Ordena que uma das aeronaves remeta o pouso
-            if (distancia_x < 0.1 && distancia_y < 0.1){
-                printf("\n🚫 Colisão eminente entre aeronaves %d [%.2f, %.2f] e %d [%.2f, %.2f]. Ordenando que a aeronave %d remeta o pouso 🚫\n", i, aeronaves[i].ponto.x, aeronaves[i].ponto.y, j, aeronaves[j].ponto.x, aeronaves[j].ponto.y, i);
-                kill(pids[i], SIGKILL);
-                aeronaves[i].status = REMETIDA;
-                break;
-            }
-
-            // Projeta a próxima posição da aeronave
-            float x_projetado = movimentaX(&aeronaves[i]);
-            float y_projetado = movimentaY(&aeronaves[i]);
-
-            distancia_x = fabs(aeronaves[j].ponto.x - x_projetado);
-            distancia_y = fabs(aeronaves[j].ponto.y - y_projetado);
-
-            // Potencial de colisão -> Ordena redução de velocidade
-            if (distancia_x < 0.11  && distancia_y < 0.11 && aeronaves[i].status != AGUARDANDO){
-                printf("\n⚠️ Potencial de colisão identificado entre aeronaves %d [%.2f, %.2f]->[%.2f, %.2f] e %d [%.2f, %.2f]. Ordenando redução da aeronave %d ⚠️\n", i, aeronaves[i].ponto.x, aeronaves[i].ponto.y, x_projetado, y_projetado, j, aeronaves[j].ponto.x, aeronaves[j].ponto.y, i);
-                kill(pids[i], SIGCONT);
-                kill(pids[i], SIGUSR1);
-                sleep(1);
-                kill(pids[i], SIGSTOP);
-
-                // Confere se o avião desacelerou
-                if (aeronaves[i].status != AGUARDANDO) perror("Aeronave não desacelerou quando solicitado");
-
-                break;
-            }
-            else if (distancia_x > 0.11  && distancia_y > 0.11 && aeronaves[i].status == AGUARDANDO){
-                printf("\n⚠️ Não há mais potencial de colisão para a aeronave %d. Ordenando aumento da velocidade ⚠️\n", aeronaves[i].id);
-                kill(pids[i], SIGCONT);
-                kill(pids[i], SIGUSR1);
-                sleep(1);
-                kill(pids[i], SIGSTOP);
-
-                // Confere se o avião acelerou
-                if (aeronaves[i].status != VOANDO) perror("Avião não acelerou quando solicitado");
-            }
+        // Colisão eminente -> Ordena que uma das aeronaves remeta o pouso
+        if (distancia_x < 0.1 && distancia_y < 0.1){
+            printf("\n🚫 Colisão eminente entre aeronaves %d [%.2f, %.2f] e %d [%.2f, %.2f]. Ordenando que a aeronave %d remeta o pouso 🚫\n", i, aeronaves[i].ponto.x, aeronaves[i].ponto.y, j, aeronaves[j].ponto.x, aeronaves[j].ponto.y, i);
+            kill(pids[i], SIGKILL);
+            aeronaves[i].status = REMETIDA;
+            break;
         }
+
+        // Projeta a próxima posição da aeronave
+        float x_projetado = movimentaX(&aeronaves[i]);
+        float y_projetado = movimentaY(&aeronaves[i]);
+
+        distancia_x = fabs(aeronaves[j].ponto.x - x_projetado);
+        distancia_y = fabs(aeronaves[j].ponto.y - y_projetado);
+
+        // Potencial de colisão -> Ordena redução de velocidade
+        if (distancia_x < 0.1 && distancia_y < 0.1 && aeronaves[i].status == VOANDO){
+            printf("\n⚠️ Potencial de colisão identificado entre aeronaves %d [%.2f, %.2f]->[%.2f, %.2f] e %d [%.2f, %.2f]. Ordenando redução da aeronave %d ⚠️\n", i, aeronaves[i].ponto.x, aeronaves[i].ponto.y, x_projetado, y_projetado, j, aeronaves[j].ponto.x, aeronaves[j].ponto.y, i);
+            kill(pids[i], SIGCONT);
+            kill(pids[i], SIGUSR1);
+            sleep(1);
+            kill(pids[i], SIGSTOP);
+
+            // Confere se o avião desacelerou
+            if (aeronaves[i].status != AGUARDANDO) perror("Aeronave não desacelerou quando solicitado");
+
+            break;
+        }
+        // Não há mais potencial de colisão com uma das possíveis aeronaves
+        else if ( (distancia_x >= 0.1  || distancia_y >= 0.1) && aeronaves[i].status == AGUARDANDO){ livre_de_colisao++; }
     }
 
-    if( (voando_mesma_direcao == 0 || processos_finalizados == 4) && aeronaves[i].status == AGUARDANDO){
-        printf("\n⚠️ Não há mais potencial de colisão para a aeronave %d. Ordenando aumento da velocidade ⚠️\n", aeronaves[i].id);
+    // Se não tiverem mais aeronaves do mesmo lado do espaço aéreo
+    if(voando_mesma_direcao == 0 && aeronaves[i].status == AGUARDANDO){
+        printf("\n🆗 Não há mais potencial de colisão para a aeronave %d. Ordenando aumento da velocidade 🆗\n", aeronaves[i].id);
         kill(pids[i], SIGCONT);
         kill(pids[i], SIGUSR1);
         sleep(1);
@@ -283,5 +292,72 @@ void controleColisao(Aeronave *aeronaves, int i, int *pids){
         // Confere se o avião acelerou
         if (aeronaves[i].status != VOANDO) perror("Avião não acelerou quando solicitado"); 
     }
+    // Se a aeronave não for colidir com uma voando na mesma direção -> Ordena aceleração
+    else if (livre_de_colisao == voando_mesma_direcao && voando_mesma_direcao > 0){
+        printf("\n⚠️ Não há mais potencial de colisão para a aeronave %d. Ordenando aumento da velocidade ⚠️\n", aeronaves[i].id);
+        kill(pids[i], SIGCONT);
+        kill(pids[i], SIGUSR1);
+        sleep(1);
+        kill(pids[i], SIGSTOP);
 
+        // Confere se o avião acelerou
+        if (aeronaves[i].status != VOANDO) perror("Avião não acelerou quando solicitado");
+    }
 }
+
+void controleEngavetamento(Aeronave *aeronaves, int *pids){
+    int bloqueados = 0;
+    float distancia_x, distancia_y;
+
+    for (int i = 0; i < QTD_AERONAVES; i++) {
+
+        if (aeronaves[i].status != AGUARDANDO) continue;
+
+        for (int j = 0; j < QTD_AERONAVES; j++) {
+            if (i == j || (aeronaves[j].status != VOANDO && aeronaves[j].status != AGUARDANDO) ) continue;
+
+            float x_projetado = movimentaX(&aeronaves[i]);
+            float y_projetado = movimentaY(&aeronaves[i]);
+
+            distancia_x = fabs(aeronaves[j].ponto.x - x_projetado);
+            distancia_y = fabs(aeronaves[j].ponto.y - y_projetado);
+
+            if (distancia_x < 0.1 && distancia_y < 0.1) { bloqueados++; break; }
+        }
+    }
+
+    if (bloqueados > 1 && bloqueados + processos_finalizados == QTD_AERONAVES){
+        printf("\n☢️ Emergência: aviões engavetados. Será necessário que 1 deles remeta o pouso. ☢️\n");
+        for (int i = 0; i < QTD_AERONAVES; i++) {
+            if (aeronaves[i].status == AGUARDANDO) {
+                printf("\n🚫 Ordenando que a aeronave %d remeta o pouso 🚫\n", i);
+                kill(pids[i], SIGKILL);
+                aeronaves[i].status = REMETIDA;
+                break;
+            }
+        }
+    }
+}
+
+int verificaEntrada(Aeronave *aeronaves, int i, int *pids){
+    float distancia_x, distancia_y;
+
+    for(int j=0; j<QTD_AERONAVES; j++){
+
+        // Se forem aeronaves diferentes, estiverem do mesmo lado e não tiverem pousado
+        if (i == j || (aeronaves[j].status != VOANDO && aeronaves[j].status != AGUARDANDO) ) continue;
+
+        distancia_x = fabs(aeronaves[j].ponto.x - aeronaves[i].ponto.x);
+        distancia_y = fabs(aeronaves[j].ponto.y - aeronaves[i].ponto.y);
+
+        // Colisão eminente -> Ordena que uma das aeronaves remeta o pouso
+        if (distancia_x < 0.1 && distancia_y < 0.1){
+            printf("\n🚫 Entrada negada a aeronave %d [%.2f, %.2f]. Risco de colisão com e %d [%.2f, %.2f] 🚫\n", i, aeronaves[i].ponto.x, aeronaves[i].ponto.y, j, aeronaves[j].ponto.x, aeronaves[j].ponto.y);
+            kill(pids[i], SIGKILL);
+            aeronaves[i].status = REMETIDA;
+            return 1;
+        }
+    }
+
+    return 0;
+} 

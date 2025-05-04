@@ -31,3 +31,4 @@ float movimentaX(struct Aeronave *aeronave);
 float movimentaY(struct Aeronave *aeronave);
 void imprimeAeronave(struct Aeronave *aeronave);
 const char* stringStatus(int status);
+int alteraPista(int pista);
