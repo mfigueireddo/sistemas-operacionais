@@ -101,6 +101,7 @@ int main(void){
 
         // Se a aeronave tiver permissão para andar
         if (aeronaves[i].status == VOANDO){
+            printf("\n\n!!! %d PODE VOAR !!!\n\n", aeronaves[i].id);
             kill(pids[i], SIGCONT);
             sleep(1); // Dá tempo da aeronave andar
             kill(pids[i], SIGSTOP);
@@ -116,8 +117,9 @@ int main(void){
             pistas[indice_pista].estaOcupada = 0;
             
         }
+
         // Se a aeronave tiver sido remetida
-        else if(aeronaves[i].status == REMETIDA){ processos_finalizados++; }
+        if(aeronaves[i].status == REMETIDA){ processos_finalizados++; }
 
         // Condição de saída
         if(processos_finalizados == QTD_AERONAVES) break;
@@ -235,7 +237,7 @@ void controlePistas(Aeronave *aeronaves, int *pids){
 
 void controleColisao(Aeronave *aeronaves, int i, int *pids){
 
-    float distancia_x, distancia_y;
+    float distancia_x, distancia_y, x_projetado, y_projetado;
     int voando_mesma_direcao = 0, livre_de_colisao = 0;
 
     for(int j=0; j<QTD_AERONAVES; j++){
@@ -258,8 +260,8 @@ void controleColisao(Aeronave *aeronaves, int i, int *pids){
         }
 
         // Projeta a próxima posição da aeronave
-        float x_projetado = movimentaX(&aeronaves[i]);
-        float y_projetado = movimentaY(&aeronaves[i]);
+        x_projetado = movimentaX(&aeronaves[i]);
+        y_projetado = movimentaY(&aeronaves[i]);
 
         distancia_x = fabs(aeronaves[j].ponto.x - x_projetado);
         distancia_y = fabs(aeronaves[j].ponto.y - y_projetado);
@@ -278,12 +280,18 @@ void controleColisao(Aeronave *aeronaves, int i, int *pids){
             break;
         }
         // Não há mais potencial de colisão com uma das possíveis aeronaves
-        else if ( (distancia_x >= 0.1  || distancia_y >= 0.1) && aeronaves[i].status == AGUARDANDO){ livre_de_colisao++; }
+        else if (!(distancia_x < 0.1 && distancia_y < 0.1) && aeronaves[i].status == AGUARDANDO){ 
+            // printf("\n\n---> %d[%.2f, %.2f]->[%.2f, %.2f] livre de colisão com %d[%.2f, %.2f]\n\n", aeronaves[i].id, aeronaves[i].ponto.x, aeronaves[i].ponto.y, x_projetado, y_projetado, aeronaves[j].id, aeronaves[j].ponto.x, aeronaves[j].ponto.y);
+            livre_de_colisao++; 
+        }
     }
 
     // Se não tiverem mais aeronaves do mesmo lado do espaço aéreo
     if(voando_mesma_direcao == 0 && aeronaves[i].status == AGUARDANDO){
         printf("\n🆗 Não há mais potencial de colisão para a aeronave %d. Ordenando aumento da velocidade 🆗\n", aeronaves[i].id);
+        
+        // printf("\n\n!!! PERMISSÃO DADA POR 1 !!!\n\n");
+
         kill(pids[i], SIGCONT);
         kill(pids[i], SIGUSR1);
         sleep(1);
@@ -295,11 +303,13 @@ void controleColisao(Aeronave *aeronaves, int i, int *pids){
     // Se a aeronave não for colidir com uma voando na mesma direção -> Ordena aceleração
     else if (livre_de_colisao == voando_mesma_direcao && voando_mesma_direcao > 0){
         printf("\n⚠️ Não há mais potencial de colisão para a aeronave %d. Ordenando aumento da velocidade ⚠️\n", aeronaves[i].id);
+        
+        // printf("\n\n!!! Permissão concedida para voo. %d livre de colisão e %d na mesma direção !!!\n\n", livre_de_colisao, voando_mesma_direcao);
+        
         kill(pids[i], SIGCONT);
         kill(pids[i], SIGUSR1);
         sleep(1);
         kill(pids[i], SIGSTOP);
-
         // Confere se o avião acelerou
         if (aeronaves[i].status != VOANDO) perror("Avião não acelerou quando solicitado");
     }

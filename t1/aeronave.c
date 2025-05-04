@@ -18,6 +18,8 @@ typedef struct Aeronave Aeronave;
 struct Aeronave *minha_aeronave = NULL;
 float velocidade_original = 0.05;
 
+// int flag_velocidade = 0;
+
 int main(int argc, char *argv[]) {
 
     // Confere se os argumento necessários foram passados
@@ -46,7 +48,18 @@ int main(int argc, char *argv[]) {
     while (1) {
 
         // Se a aeronave estiver AGUARDANDO, não anda
-        if(minha_aeronave->status != VOANDO){ sleep(3); continue;}
+        if(minha_aeronave->status != VOANDO){ 
+            // Evita que a aeronave ande depois de ter permissão pra voar mas antes que se confira a possibilidade de colisão
+            // MUDEI AQUI AGORA
+            /*
+            if (flag_velocidade){
+                minha_aeronave->status = VOANDO;
+                flag_velocidade = !flag_velocidade;
+            }
+            */
+            // printf("\n\n!!! TENTOU VOAR !!!\n\n");
+            sleep(2); continue;
+        }
 
         printf("\n▶️ Mudança de posição - Aeronave %d [%.2f, %.2f] -> ", minha_aeronave->id, minha_aeronave->ponto.x, minha_aeronave->ponto.y);
 
@@ -73,24 +86,19 @@ int main(int argc, char *argv[]) {
 void toggle_velocidade(int sig) {
 
     if(minha_aeronave->status == VOANDO){
-        printf("\n🔁 Aeronave %d aguardando permissão para continuar. ", minha_aeronave->id);
-        printf("Velocidade da aeronave %d alterada - %.2f -> ", minha_aeronave->id, minha_aeronave->velocidade);
-
-        minha_aeronave->velocidade = 0;
+        printf("\n🔁 Aeronave %d aguardando permissão para continuar. 🔁\n", minha_aeronave->id);
         minha_aeronave->status = AGUARDANDO;
     }
     else{
-        printf("\n🔁 Aeronave %d continuando o trajeto ", minha_aeronave->id);
-        printf("Velocidade da aeronave %d alterada - %.2f -> ", minha_aeronave->id, minha_aeronave->velocidade);
+        printf("\n🔁 Aeronave %d continuando o trajeto 🔁\n", minha_aeronave->id);
 
-        minha_aeronave->velocidade = velocidade_original;
+        // MUDEI AQUI AGORA
         minha_aeronave->status = VOANDO;
+        //flag_velocidade = !flag_velocidade;
     }
 
-    printf("%.2f 🔁\n", minha_aeronave->velocidade);
-
-    // Avião espera um pouco pra andar se ele teve que mudar a velocidade
-    sleep(3);
+    // MUDEI AQUI AGORA
+    sleep(1);
 }
 
 void toggle_pista(int sig) {
