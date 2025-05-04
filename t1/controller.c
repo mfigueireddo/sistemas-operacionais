@@ -29,8 +29,8 @@ int buscaIndicePista(int num_pista);
 void calculaPrioridade(Aeronave *aeronaves, int *array_indices);
 void criaAeronaves(int *segmento_memoria, int *pids);
 void controlePistas(Aeronave *aeronaves, int *pids);
-void controleColisao(Aeronave *aeronaves, int i, int *pids);
-void controleEngavetamento(Aeronave *aeronaves, int *pids);
+int controleColisao(Aeronave *aeronaves, int i, int *pids);
+int controleEngavetamento(Aeronave *aeronaves, int *pids);
 int verificaEntrada(Aeronave *aeronaves, int i, int *pids);
 
 // Variáveis globais do módulo
@@ -87,6 +87,13 @@ int main(void){
 
                 // Se a aeronave tiver entrada permitida
                 if (!verificaEntrada(aeronaves, i , pids)){ printf("\n☑️ A aeronave %d teve sua entrada permitida no espaço aéreo. ☑️\n", aeronaves[i].id); }
+                else{
+                    processos_finalizados++; 
+                    printf("\n💭 %d processos finalizados\n", processos_finalizados);
+                    // Libera a pista
+                    int indice_pista = buscaIndicePista(aeronaves[i].pista_preferida);
+                    pistas[indice_pista].ocupacao--;
+                }
             }
         }
 
@@ -96,12 +103,17 @@ int main(void){
             continue; 
         }
 
-        controleColisao(aeronaves, i, pids);
-        controleEngavetamento(aeronaves, pids);
+        if (controleColisao(aeronaves, i, pids) || controleEngavetamento(aeronaves, pids)){
+            processos_finalizados++;
+            printf("\n💭 %d processos finalizados\n", processos_finalizados);
+            // Libera a pista
+            int indice_pista = buscaIndicePista(aeronaves[i].pista_preferida);
+            pistas[indice_pista].ocupacao--;
+        }
 
         // Se a aeronave tiver permissão para andar
         if (aeronaves[i].status == VOANDO){
-            printf("\n\n!!! %d PODE VOAR !!!\n\n", aeronaves[i].id);
+            // printf("\n\n!!! %d PODE VOAR !!!\n\n", aeronaves[i].id);
             kill(pids[i], SIGCONT);
             sleep(1); // Dá tempo da aeronave andar
             kill(pids[i], SIGSTOP);
@@ -110,16 +122,14 @@ int main(void){
         // Se a aeronave tiver pousado
         if(aeronaves[i].status == FINALIZADO){ 
 
-            processos_finalizados++;
+            processos_finalizados++; 
+            printf("\n💭 %d processos finalizados\n", processos_finalizados);
 
             // Libera a pista
             int indice_pista = buscaIndicePista(aeronaves[i].pista_preferida);
-            pistas[indice_pista].estaOcupada = 0;
+            pistas[indice_pista].ocupacao--;
             
         }
-
-        // Se a aeronave tiver sido remetida
-        if(aeronaves[i].status == REMETIDA){ processos_finalizados++; }
 
         // Condição de saída
         if(processos_finalizados == QTD_AERONAVES) break;
@@ -212,30 +222,34 @@ void controlePistas(Aeronave *aeronaves, int *pids){
         if (indice_pista == -1) perror("Aeronave deseja pousar em uma pista inexistente");
 
         // Se a pista já estiver ocupada
-        if (pistas[indice_pista].estaOcupada){
+        if (pistas[indice_pista].ocupacao != 0){
 
+            // Procura uma pista alterntiva
             pista_secundaria = alteraPista(aeronaves[i].pista_preferida);
             indice_pista_secundaria = buscaIndicePista(pista_secundaria);
 
-            // Se a outra pista estiver vaga
-            if (!pistas[indice_pista_secundaria].estaOcupada){
+            // Se a outra pista tiver menos ocupada
+            if (pistas[indice_pista_secundaria].ocupacao < pistas[indice_pista].ocupacao){
                 printf("\n❗ Solicitando que a aeronave %d (pista %d) troque de pista ❗\n", aeronaves[i].id, aeronaves[i].pista_preferida);
                 kill(pids[i], SIGCONT);
                 kill(pids[i], SIGUSR2);
                 sleep(1);
                 kill(pids[i], SIGSTOP);
-                
+
                 // Confere se a pista foi alterada
                 if (aeronaves[i].pista_preferida != pistas[indice_pista_secundaria].num) perror("Avião não mudou de pista quando solicitado");
+            
+                pistas[indice_pista_secundaria].ocupacao++;
             }
-            else continue;
+            // Se não, fica nela mesmo
+            else pistas[indice_pista].ocupacao++;
         }
         // Se a pista estiver vazia
-        else pistas[indice_pista].estaOcupada = 1;
+        else pistas[indice_pista].ocupacao++;
     }
 }
 
-void controleColisao(Aeronave *aeronaves, int i, int *pids){
+int controleColisao(Aeronave *aeronaves, int i, int *pids){
 
     float distancia_x, distancia_y, x_projetado, y_projetado;
     int voando_mesma_direcao = 0, livre_de_colisao = 0;
@@ -256,7 +270,7 @@ void controleColisao(Aeronave *aeronaves, int i, int *pids){
             printf("\n🚫 Colisão eminente entre aeronaves %d [%.2f, %.2f] e %d [%.2f, %.2f]. Ordenando que a aeronave %d remeta o pouso 🚫\n", i, aeronaves[i].ponto.x, aeronaves[i].ponto.y, j, aeronaves[j].ponto.x, aeronaves[j].ponto.y, i);
             kill(pids[i], SIGKILL);
             aeronaves[i].status = REMETIDA;
-            break;
+            return 1;
         }
 
         // Projeta a próxima posição da aeronave
@@ -313,9 +327,11 @@ void controleColisao(Aeronave *aeronaves, int i, int *pids){
         // Confere se o avião acelerou
         if (aeronaves[i].status != VOANDO) perror("Avião não acelerou quando solicitado");
     }
+
+    return 0;
 }
 
-void controleEngavetamento(Aeronave *aeronaves, int *pids){
+int controleEngavetamento(Aeronave *aeronaves, int *pids){
     int bloqueados = 0;
     float distancia_x, distancia_y;
 
@@ -343,10 +359,12 @@ void controleEngavetamento(Aeronave *aeronaves, int *pids){
                 printf("\n🚫 Ordenando que a aeronave %d remeta o pouso 🚫\n", i);
                 kill(pids[i], SIGKILL);
                 aeronaves[i].status = REMETIDA;
-                break;
+                return 1;
             }
         }
     }
+
+    return 0;
 }
 
 int verificaEntrada(Aeronave *aeronaves, int i, int *pids){

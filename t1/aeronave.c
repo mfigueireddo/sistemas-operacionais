@@ -103,11 +103,11 @@ void toggle_velocidade(int sig) {
 
 void toggle_pista(int sig) {
 
-    printf("\n🔁 Pista da aeronave %d alterada - %d -> ", minha_aeronave->id, minha_aeronave->pista_preferida);
+    printf("\n🔁 Pista da aeronave %d alterada (%d -> ", minha_aeronave->id, minha_aeronave->pista_preferida);
 
     minha_aeronave->pista_preferida = alteraPista(minha_aeronave->pista_preferida);
 
-    printf("%d 🔁\n", minha_aeronave->pista_preferida);
+    printf("%d) 🔁\n", minha_aeronave->pista_preferida);
 }
 
 void configurar_inicialmente(struct Aeronave *aeronave, int index) {

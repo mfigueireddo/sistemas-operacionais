@@ -5,7 +5,7 @@ struct Ponto{
 
 struct Pista{
     int num;
-    int estaOcupada;
+    int ocupacao;
 };
 
 struct Aeronave{
