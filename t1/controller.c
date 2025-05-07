@@ -9,6 +9,11 @@
 #include <math.h> // sqrt
 #include <time.h> // time()
 
+//para a interface com o usuário:
+#include <pthread.h>
+#include "interface.h"
+
+
 #include <errno.h>
 
 // Estruturas personalizadas do trabalho
@@ -17,10 +22,7 @@ typedef struct Aeronave Aeronave;
 typedef struct Pista Pista;
 typedef struct Ponto Ponto;
 
-// Macros do módulo
-#ifndef QTD_AERONAVES
-#define QTD_AERONAVES 5
-#endif
+
 
 #define QTD_PISTAS 4
 
@@ -56,6 +58,10 @@ int main(void){
     // Começa pausando todas as aeronaves
     printf("\n⚠️ Ordenando a pausa de todas as aeronaves ⚠️\n");
     for(int i=0; i<QTD_AERONAVES; i++) kill(pids[i], SIGSTOP); 
+
+    //Inicia thread de interface de usuário
+    pthread_t thread_comando;
+    pthread_create(&thread_comando, NULL, comandoUsuario, (void*) aeronaves);
 
     // Confere se não há aeronaves com a mesma pista de destino
     controlePistas(aeronaves, pids);
