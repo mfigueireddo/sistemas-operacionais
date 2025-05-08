@@ -10,6 +10,12 @@
 #include <time.h> // time()
 #include <string.h> // strcspn()
 
+// Interface
+#include <pthread.h>
+pthread_t controller_thread;
+int flag_interface = 0;
+int flag_fecha_thread = 0;
+
 // Arquivos header
 #include "aux.h"
 
@@ -27,12 +33,12 @@ int controleColisao(Aeronave *aeronaves, int i, int *pids);
 int controleEngavetamento(Aeronave *aeronaves, int *pids);
 int verificaEntrada(Aeronave *aeronaves, int i, int *pids);
 void formalizaPouso(Aeronave* aeronave);
-void interface(int sinal);
 void imprimeResultados(void);
+void* interface(void* arg);
 
 // Variáveis globais do módulo
 static Aeronave *aeronaves = NULL;
-static int pids[5];
+static int pids[QTD_AERONAVES];
 static Pista pistas[QTD_PISTAS] = { {3, 0}, {6, 0}, {18, 0}, {27, 0} };
 static int processos_finalizados = 0;
 static int bloqueados;
@@ -40,7 +46,7 @@ static int indices_ordenados[QTD_AERONAVES];
 
 int main(void){
 
-    printf("Entre com CTRL+\\ para abrir o terminal.\n");
+    //printf("Entre com CTRL+\\ para abrir o terminal.\n");
 
     // Criando segmento de memória compartilhando
     int segmento_memoria = shmget(IPC_PRIVATE, sizeof(Aeronave)*QTD_AERONAVES, IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
@@ -53,12 +59,16 @@ int main(void){
     // Criando múltiplos processos (aeronaves)
     criaAeronaves(&segmento_memoria, pids);
 
+    // Inicia thread de interface de usuário
+    pthread_create(&controller_thread, NULL, interface, NULL);
+
     // Começa pausando todas as aeronaves
     printf("\n⚠️ Ordenando a pausa de todas as aeronaves ⚠️\n");
     for(int i=0; i<QTD_AERONAVES; i++) kill(pids[i], SIGSTOP); 
 
     // Aciona a interface quando o usuário entra com CTRL+\ .
-    signal(SIGQUIT, interface);
+    //signal(SIGQUIT, interface);
+    //signal(SIGINT, interface);
 
     // Confere se não há aeronaves com a mesma pista de destino
     controlePistas(aeronaves, pids);
@@ -80,10 +90,10 @@ int main(void){
 
     while(1){
 
+        if(flag_interface) continue;
+
         // Itera sobre a ordem de prioridade e não sobre o ID das aeronaves
         i = indices_ordenados[contador];
-
-        printf("\nIteração com %d", indices_ordenados[contador]);
 
         // Se a aeronave ainda não teve sua entrada no espaço aéreo permitida
         if(aeronaves[i].status == DELAY){
@@ -116,7 +126,9 @@ int main(void){
 
         // Se a aeronave tiver permissão para continuar
         if (aeronaves[i].status == VOANDO){
-            printf("\nChegou aqui");
+            // printf("\nTESTE: Enviando sinal para processo continuar\n");
+            //imprimeAeronave(&aeronaves[i]);
+            //if (kill(pids[i], 0) == 0) printf("Processo vivo\n");
             kill(pids[i], SIGCONT);
             sleep(1); // Dá um tempo para aeronave.c aplicar as mudanças de posição
             kill(pids[i], SIGSTOP);
@@ -135,6 +147,7 @@ int main(void){
 
     }
 
+    flag_fecha_thread = 1;
     printf("\n🥳 Todas as aeronaves pousaram. Encerrando programa. 🥳\n");
     imprimeResultados();
 
@@ -447,88 +460,6 @@ void formalizaPouso(Aeronave* aeronave){
     pistas[indice_pista].ocupacao--;   
 }
 
-void interface(int sinal){
-
-    char comando[50];
-    int id;
-
-    while (1) {
-        printf("\n📖 Comandos disponíveis:\n");
-        printf("  status          → mostra todas as informações das aeronaves\n");
-        printf("  iniciar <id>    → inicia o vôo de uma aeronave\n");
-        printf("  pausar <id>     → pausa o vôo de uma aeronave\n");
-        printf("  retomar <id>    → retoma o vôo de uma aeronave\n");
-        printf("  finalizar <id>  → finaliza o vôo de uma aeronave\n");
-        printf("  sair            → encerra a interface de comandos\n");
-
-        // Obtém o comando do usuário
-        printf("\n📡 Comando > ");
-        fgets(comando, sizeof(comando), stdin);
-        comando[strcspn(comando, "\n")] = '\0'; // remove \n
-
-        // Status
-        if (strncmp(comando, "status", 6) == 0) {
-            printf("\n📋 Status das aeronaves:\n");
-            for (int i = 0; i < QTD_AERONAVES; i++) { 
-                imprimeAeronave(&aeronaves[i]); 
-            }
-        }
-        // Iniciar
-        else if (sscanf(comando, "iniciar %d", &id) == 1) {
-            if (aeronaves[id].status != VOANDO){ 
-                aeronaves[id].status = VOANDO; 
-                printf("▶️ Aeronave %d iniciada.\n", id); 
-            }
-            else { 
-                printf("▶️ Atenção! A aeronave %d já havia sido iniciada.\n", id); 
-            }
-        }
-        // Pausar
-        else if (sscanf(comando, "pausar %d", &id) == 1) {
-            if(aeronaves[id].status != AGUARDANDO){ 
-                aeronaves[id].status = AGUARDANDO; 
-                printf("⏸️ Aeronave %d pausada.\n", id); 
-            }
-            else { 
-                printf("⏸️ Atenção! A aeronave %d já estava pausada.\n", id); 
-            }
-        }
-        // Retomar
-        else if (sscanf(comando, "retomar %d", &id) == 1) {
-            if (aeronaves[id].status != VOANDO){ 
-                aeronaves[id].status = VOANDO; 
-                printf("▶️ Aeronave %d retomada.\n", id); 
-            }
-            else {
-                printf("▶️ Atenção! A aeronave %d já estava em execução.\n", id); 
-            }
-        }
-        // Finalizar
-        else if (sscanf(comando, "finalizar %d", &id) == 1) {
-            if (aeronaves[id].status == FINALIZADO){ printf("💀 Atenção! Não é possível finalizar a aeronave %d porque ela já pousou.\n", id); }
-            else if(aeronaves[id].status != REMETIDA){ 
-                kill(pids[id], SIGKILL);
-                aeronaves[id].status = REMETIDA;
-                formalizaPouso(&aeronaves[id]);
-                printf("💀 Aeronave %d finalizada.\n", id);
-            }
-            else{
-                printf("💀 Atenção! A aeronave %d já foi finalizada.\n", id);
-            }
-        }
-        // Sair
-        else if (strncmp(comando, "sair", 4) == 0) {
-            printf("⛔ Encerrando interface de comandos...\n");
-            break;
-        }
-        // Default
-        else {
-            printf("❌ Comando inválido. Use: status | iniciar <id> | pausar <id> | retomar <id> | finalizar <id> | sair\n");
-        }
-    }
-
-}
-
 void imprimeResultados(void){
     int finalizado, remetida;
     finalizado = remetida = 0;
@@ -540,4 +471,108 @@ void imprimeResultados(void){
 
     printf(">> %d pousaram com sucesso\n", finalizado);
     printf(">> %d foram remetidas\n", remetida);
+}
+
+void* interface(void* arg) {
+
+    char comando[50];
+    int id;
+
+    while (1) {
+
+        if (flag_fecha_thread) break;
+
+        if (!flag_interface){
+            char entrada = getchar();
+    
+            /*
+            // Limpa o buffer caso ainda haja '\n' sobrando
+            while (entrada != '\n' && entrada != EOF) {
+                entrada = getchar();
+            }
+            */
+
+            if (entrada == '\n') {
+                flag_interface = 1;
+            }
+        }
+
+        if (flag_interface){
+            printf("\n📖 Comandos disponíveis:\n");
+            printf("  status          → mostra todas as informações das aeronaves\n");
+            printf("  iniciar <id>    → inicia o vôo de uma aeronave\n");
+            printf("  pausar <id>     → pausa o vôo de uma aeronave\n");
+            printf("  retomar <id>    → retoma o vôo de uma aeronave\n");
+            printf("  finalizar <id>  → finaliza o vôo de uma aeronave\n");
+            printf("  sair            → encerra a interface de comandos\n");
+
+            // Obtém o comando do usuário
+            printf("\n📡 Comando > ");
+            fgets(comando, sizeof(comando), stdin);
+            comando[strcspn(comando, "\n")] = '\0'; // remove \n
+
+            // Status
+            if (strncmp(comando, "status", 6) == 0) {
+                printf("\n📋 Status das aeronaves:\n");
+                for (int i = 0; i < QTD_AERONAVES; i++) { 
+                    imprimeAeronave(&aeronaves[i]); 
+                }
+            }
+            // Iniciar
+            else if (sscanf(comando, "iniciar %d", &id) == 1) {
+                if (aeronaves[id].status != VOANDO){ 
+                    aeronaves[id].status = VOANDO; 
+                    printf("▶️ Aeronave %d iniciada.\n", id); 
+                }
+                else { 
+                    printf("▶️ Atenção! A aeronave %d já havia sido iniciada.\n", id); 
+                }
+            }
+            // Pausar
+            else if (sscanf(comando, "pausar %d", &id) == 1) {
+                if(aeronaves[id].status != AGUARDANDO){ 
+                    aeronaves[id].status = AGUARDANDO; 
+                    printf("⏸️ Aeronave %d pausada.\n", id); 
+                }
+                else { 
+                    printf("⏸️ Atenção! A aeronave %d já estava pausada.\n", id); 
+                }
+            }
+            // Retomar
+            else if (sscanf(comando, "retomar %d", &id) == 1) {
+                if (aeronaves[id].status != VOANDO){ 
+                    aeronaves[id].status = VOANDO; 
+                    printf("▶️ Aeronave %d retomada.\n", id); 
+                }
+                else {
+                    printf("▶️ Atenção! A aeronave %d já estava em execução.\n", id); 
+                }
+            }
+            // Finalizar
+            else if (sscanf(comando, "finalizar %d", &id) == 1) {
+                if (aeronaves[id].status == FINALIZADO){ printf("💀 Atenção! Não é possível finalizar a aeronave %d porque ela já pousou.\n", id); }
+                else if(aeronaves[id].status != REMETIDA){ 
+                    kill(aeronaves[id].pid, SIGKILL);
+                    aeronaves[id].status = REMETIDA;
+                    formalizaPouso(&aeronaves[id]);
+                    printf("💀 Aeronave %d finalizada.\n", id);
+                }
+                else{
+                    printf("💀 Atenção! A aeronave %d já foi finalizada.\n", id);
+                }
+            }
+            // Sair
+            else if (strncmp(comando, "sair", 4) == 0) {
+                printf("⛔ Encerrando interface de comandos...\n");
+                flag_interface = 0;
+                continue;
+            }
+            // Default
+            else {
+                printf("❌ Comando inválido. Use: status | iniciar <id> | pausar <id> | retomar <id> | finalizar <id> | sair\n");
+            }
+        }
+    }
+
+    return NULL;
 }

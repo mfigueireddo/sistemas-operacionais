@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
 
     while (1) {
 
-        printf("\nArigato");
+        //printf("\nProcesso aeronave\n");
 
         // Inibe qualquer movimento caso a aeronave não tenha permissão do controller
         if(minha_aeronave->status != VOANDO){ 
