@@ -21,14 +21,14 @@ typedef struct Ponto Ponto;
 
 // Funções do módulo
 int buscaIndicePista(int num_pista);
-void calculaPrioridade(Aeronave *aeronaves, int *array_indices);
-void criaAeronaves(int *segmento_memoria, int *pids);
-void controlePistas(Aeronave *aeronaves, int *pids);
-int controleColisao(Aeronave *aeronaves, int i, int *pids);
-int controleEngavetamento(Aeronave *aeronaves, int *pids);
-int verificaEntrada(Aeronave *aeronaves, int i, int *pids);
-void formalizaPouso(Aeronave* aeronave);
-void imprimeResultados(void);
+void calculaPrioridade();
+void criaAeronaves();
+void controlePistas();
+int controleColisao(int i);
+int controleEngavetamento();
+int verificaEntrada(int i);
+void formalizaFim(Aeronave* aeronave);
+void imprimeResultados();
 void* interface(void* arg);
 
 // Variáveis globais do módulo
@@ -41,13 +41,14 @@ int indices_ordenados[QTD_AERONAVES];
 pthread_t controller_thread;
 int flag_interface = 0;
 int flag_fecha_thread = 0;
+int segmento_memoria;
 
 int main(void){
 
     printf("🌐 Entre com ENTER para abrir o terminal.\n\n");
 
     // Criando segmento de memória compartilhando
-    int segmento_memoria = shmget(IPC_PRIVATE, sizeof(Aeronave)*QTD_AERONAVES, IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
+    segmento_memoria = shmget(IPC_PRIVATE, sizeof(Aeronave)*QTD_AERONAVES, IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
     if (segmento_memoria == -1){ perror("Erro na criação de memória compartilhada"); return 1; }
 
     // Ponteiro para o segmento de memória
@@ -55,7 +56,7 @@ int main(void){
     if (aeronaves == (void *)-1) { perror("Erro no shmat"); exit(1); }
 
     // Criando múltiplos processos (aeronaves)
-    criaAeronaves(&segmento_memoria, pids);
+    criaAeronaves();
 
     // Inicia thread responsável pela interface de usuário
     pthread_create(&controller_thread, NULL, interface, NULL);
@@ -65,11 +66,11 @@ int main(void){
     for(int i=0; i<QTD_AERONAVES; i++) kill(pids[i], SIGSTOP); 
 
     // Confere se não há aeronaves com a mesma pista de destino
-    controlePistas(aeronaves, pids);
+    controlePistas();
 
     // Ordem de execução dos processos com base na distância da aeornave ao destino
     for(int i=0; i<QTD_AERONAVES; i++) indices_ordenados[i] = i;
-    calculaPrioridade(aeronaves, indices_ordenados);
+    calculaPrioridade();
 
     // Escalonamento Round-Robin
     int i, contador = 0;
@@ -103,10 +104,10 @@ int main(void){
                 aeronaves[i].status = VOANDO;
 
                 // Se a aeronave tiver entrada permitida
-                if (!verificaEntrada(aeronaves, i , pids)){ printf("\n☑️ A aeronave %d teve sua entrada permitida no espaço aéreo. ☑️\n", aeronaves[i].id); }
+                if (!verificaEntrada(i)){ printf("\n☑️ A aeronave %d teve sua entrada permitida no espaço aéreo. ☑️\n", aeronaves[i].id); }
                 
                 // Se a aeronave não tiver a entrada permitida (colisão eminente)
-                else{ formalizaPouso(&aeronaves[i]); }
+                else{ formalizaFim(&aeronaves[i]); }
             }
         }
 
@@ -117,7 +118,7 @@ int main(void){
         }
 
         // Se a aeronave tiver sido remetida pelos algoritmos de controle
-        if (controleColisao(aeronaves, i, pids) || controleEngavetamento(aeronaves, pids)){ formalizaPouso(&aeronaves[i]); }
+        if (controleColisao(i) || controleEngavetamento()){ formalizaFim(&aeronaves[i]); }
 
         // Se a aeronave tiver permissão para continuar
         if (aeronaves[i].status == VOANDO){
@@ -127,7 +128,7 @@ int main(void){
         }
 
         // Se a aeronave tiver pousado com sucesso
-        if(aeronaves[i].status == FINALIZADO){ formalizaPouso(&aeronaves[i]); }
+        if(aeronaves[i].status == FINALIZADO){ formalizaFim(&aeronaves[i]); }
 
         // Condição de saída
         if(processos_finalizados == QTD_AERONAVES) break;
@@ -135,7 +136,7 @@ int main(void){
         ++contador; contador = contador % QTD_AERONAVES;
     
         // Se todas as aeronaves tiverem tido "sua vez", calcula novamente a ordem de prioridade
-        if(contador == 0) calculaPrioridade(aeronaves, indices_ordenados);
+        if(contador == 0) calculaPrioridade();
 
     }
 
@@ -159,7 +160,7 @@ int buscaIndicePista(int num_pista){
 }
 
 // Ordena array_indices com base na distância das aeronaves à pista de pouso
-void calculaPrioridade(Aeronave *aeronaves, int *array_indices){
+void calculaPrioridade(){
 
     Ponto destino = {0.5, 0.5};
     float distancia[QTD_AERONAVES], dx[QTD_AERONAVES], dy[QTD_AERONAVES];
@@ -178,21 +179,21 @@ void calculaPrioridade(Aeronave *aeronaves, int *array_indices){
     for (int i = 0; i < QTD_AERONAVES - 1; i++) {
         for (int j = 0; j < QTD_AERONAVES - 1 - i; j++) {
 
-            if (distancia[array_indices[j]] > distancia[array_indices[j + 1]]) {
-                temp = array_indices[j];
-                array_indices[j] = array_indices[j + 1];
-                array_indices[j + 1] = temp;
+            if (distancia[indices_ordenados[j]] > distancia[indices_ordenados[j + 1]]) {
+                temp = indices_ordenados[j];
+                indices_ordenados[j] = indices_ordenados[j + 1];
+                indices_ordenados[j + 1] = temp;
             }
 
         }
     }
 
     printf("\n🕐 Ordem de prioridade das aeronaves: ");
-    for(int i=0; i<QTD_AERONAVES; i++) printf("%d ", array_indices[i]);
+    for(int i=0; i<QTD_AERONAVES; i++) printf("%d ", indices_ordenados[i]);
     printf(" 🕐\n");
 }
 
-void criaAeronaves(int *segmento_memoria, int *pids){
+void criaAeronaves(){
     char str_segmento_memoria[20], str_indice_aeronave[20];
 
     for (int i=0; i<QTD_AERONAVES; i++){
@@ -206,7 +207,7 @@ void criaAeronaves(int *segmento_memoria, int *pids){
         else if(pids[i]==0){ 
 
             // Transforma de inteiro para string
-            sprintf(str_segmento_memoria, "%d", *segmento_memoria);
+            sprintf(str_segmento_memoria, "%d", segmento_memoria);
             sprintf(str_indice_aeronave, "%d", i);
 
             // Executa o programa responsável pelas aeronaves
@@ -220,7 +221,7 @@ void criaAeronaves(int *segmento_memoria, int *pids){
 }
 
 // Garante que as aeronaves fiquem na pista mais vazia possível
-void controlePistas(Aeronave *aeronaves, int *pids){
+void controlePistas(){
 
     int indice_pista, indice_pista_secundaria, pista_secundaria;
 
@@ -266,7 +267,7 @@ void controlePistas(Aeronave *aeronaves, int *pids){
 
 // Confere se a aeronave no índice i tem risco de colidir com outras aeronaves
 // Retornos -> 0 (aeronave não foi finalizada) 1 (aeronave foi finalizada)
-int controleColisao(Aeronave *aeronaves, int i, int *pids){
+int controleColisao(int i){
 
     float distancia_x, distancia_y, x_projetado, y_projetado;
 
@@ -362,7 +363,7 @@ int controleColisao(Aeronave *aeronaves, int i, int *pids){
 
 // Confere se as aeronaves estão "engavetadas" (paradas mas caso se movimentem irão colidir)
 // Retornos -> 0 (nenhuma aeronave remetida) 1 (alguma aeronave foi remetida)
-int controleEngavetamento(Aeronave *aeronaves, int *pids){
+int controleEngavetamento(){
 
     // Guarda a quantidade de aeronaves que estão paradas porque se bateriam caso houvesse movimento
     int bloqueados = 0;
@@ -412,7 +413,7 @@ int controleEngavetamento(Aeronave *aeronaves, int *pids){
 
 // Verifia se uma aeronave vai bater com alguma outra se ela entrar no espaço aéreo
 // Retornos -> 0 (nenhuma aeronave remetida) 1 (alguma aeronave foi remetida)
-int verificaEntrada(Aeronave *aeronaves, int i, int *pids){
+int verificaEntrada(int i){
 
     float distancia_x, distancia_y;
 
@@ -445,14 +446,14 @@ int verificaEntrada(Aeronave *aeronaves, int i, int *pids){
 } 
 
 // Executa os procedimentos necessários quando uma aeronave pousa
-void formalizaPouso(Aeronave* aeronave){
+void formalizaFim(Aeronave* aeronave){
     processos_finalizados++; 
     printf("\n💭 %d processos finalizados\n", processos_finalizados);
     int indice_pista = buscaIndicePista(aeronave->pista_preferida);
     pistas[indice_pista].ocupacao--;   
 }
 
-void imprimeResultados(void){
+void imprimeResultados(){
     int finalizado, remetida;
     finalizado = remetida = 0;
 
@@ -483,6 +484,9 @@ void* interface(void* arg) {
 
         // Se o usuário tiver ordenado a exibição da interface
         if (flag_interface){
+
+            sleep(1); // Espera que as ações do loop principal sejam concluídas
+
             printf("\n📖 Comandos disponíveis:\n");
             printf("  status          → mostra todas as informações das aeronaves\n");
             printf("  iniciar <id>    → inicia o vôo de uma aeronave\n");
@@ -539,7 +543,7 @@ void* interface(void* arg) {
                 else if(aeronaves[id].status != REMETIDA){ 
                     kill(aeronaves[id].pid, SIGKILL);
                     aeronaves[id].status = REMETIDA;
-                    formalizaPouso(&aeronaves[id]);
+                    formalizaFim(&aeronaves[id]);
                     printf("💀 Aeronave %d finalizada.\n", id);
                 }
                 else{

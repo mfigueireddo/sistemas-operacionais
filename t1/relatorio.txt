@@ -1,0 +1,213 @@
+Matheus Moreira da Silva Figueiredo - 2320813
+Luana Nobre da Costa - 2310204
+
+--- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
+
+Compilação e execução
+$ gcc controller.c utils.c -o controller -lm -DQTD_AERONAVES=_
+$ gcc aeronave.c utils.c -o aeronave -lm
+$ ./controller
+
+O projeto funciona com 3 arquivos .c:
+- controller.c: arquivo que representa o processo-pai onde outros processos são criados, onde é feito o controle de colisão entre aeronaves e onde a interface é desenvolvida
+- aeronave.c: arquivo que representa n processos-filho onde é feito o movimento das aeronaves, assim como sua configuração, mudança de velocidade e mudança de pista
+- utils.c: arquivo que armazena funções "auxiliares" que são utilizadas pelos demais módulos
+
+Além disso, existe um arquivo .h que armazena as estruturas utilizadas no projeto, declaração de funções de utils.c e definição de macros
+
+A lógica do programa se mantém a mesma pra todas as N aeronaves no espaço aéreo com as únicas mudanças sendo em relação ao tamanho de vetores e relacionados
+
+--- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
+
+Falando especificamente sobre controller.c 
+Foi feita a escolha de deixar boa parte das variáveis no escopo global em razão das múltiplas funções auxiliares que utilizavam os mesmos.
+Inicialmente, o programa cria outros N processos-filho e organiza uma memória compartilhada entre eles.
+Nesse ponto, o arquivo aeronave.c é executado e toda a configuração dos atributos das aeronaves ficam sob a responsabilidade do mesmo. 
+Uma thread é criada para que possa ser implementada uma interface (lógica da escolha será explicada posteriormente).
+Em seguida, todos as aeronaves recebem um sinal que ordena que elas tenham sua execução suspensa.
+Isso é feito para que possa ser calculada a ordem de prioridade da execução das aeronaves e também para que elas não comecem a se movimentar sem passarem pelas conferências necessárias.
+Além disso, é executada uma função que faz o controle das pistas, realocando as aeronaves de pista a depender da ocupação da mesma.
+Então, começa o loop principal que será executado até todas as aeronaves pousarem (ou serem remetidas).
+Inicialmente, é implementado um algoritmo que confere se a aeronave já pode "entrar no espaço aéreo", em outras palavras se seu tempo de ativação já foi alcançado.
+A partir daí, a aeronave passa pelo controle de colisão e controle de engavetamento (a serem explicados posteriomente). 
+Tendo permissão de avançarem sem comprometer a segurança das aeronaves, o processo-pai manda um sinal para o processo-filho correspondente. Então, aeronave.c fica responsável por movimentar a aeronave.
+Esse processo é repetido quantas vezes forem necessárias até que a aeronave seja remetida ou pouse na pista.
+Importante pontuar que toda vez que um "turno" de execução das aeronaves é finalizado, a ordem de prioridade é recalculada.
+Ao final, é exibida uma mensagem indicando quantas aeronaves foram remetidas e quantas pousaram com sucesso.
+
+--- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
+
+Sobre o funcionamento da interface.
+A thread da interface espera que o usuário digite ENTER para que o terminal seja impresso. 
+A partir daí, o loop principal é interrompido e o loop da interface toma conta.
+Nesse momento, o usuário pode realizar uma série de operações listadas.
+No momento em que o usuário escolher sair da interface, o loop continua rodando porém só sua única função será esperar outro ENTER do usuário para que ele seja impresso novamente.
+Essa thread só é de fato finalizada quando não houverem mais aeronaves no espaço aéreo.
+
+Explicando a escolha de threads para desenvolver a interface.
+Anteriormente, foi feita a tentativa de gerenciar a interface por meio do recebimento de um sinal SIGINT (CTRL+C).
+Contudo, acontecia um erro inesperado onde após o usuário escolher sair da interface, o loop principal se tornava incapaz de mandar sinais para outros processos.
+O erro que dava era "Interrupted system call".
+Foram feitas várias tentativas de burlar o erro mas ao fim nada funcionava.
+Foi então que decidimos tentar implementar o conceito recém-apresentado de threads. 
+O funcionamento do programa poderia ter ficado mais simples utilizando sinais, já que a thread fica rodando o tempo inteiro a espera de um ENTER.
+Porém, dessa maneira é possível executar todas as operações pedidas para o sistema.
+
+--- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
+
+Sobre aeronave.c 
+Esse arquivo é responsável pelo comportamento individual das aeronaves. 
+Ele é executado N vezes, cada uma delas para uma aeronave diferente.
+Nele, a memória compartilhada criada em controler.c é acessada e o programa passa a guardar as informações da aeronave nessa área.
+Nesse caso, foi possível o recebimento de sinais com SIGUSR1 e SIGUSR2. 
+SIGUSR1 executa uma função responsável pela redução de velocidade da aeronave.
+SIGUSR2 executa uma função responsável pela troca de pista da aeronave.
+Em seguida vem o loop principal, executado quando o sinal de controller.c é enviado sinalizando que a aeronave pode prosseguir.
+Aqui, a posição da aeronave é alterada até que ela chegue na pista de pouso.
+Ao chegar na pista de pouso, o processo é encerrado.
+
+--- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
+
+Agora será feita uma análise sobre o funcionamento de cada função
+
+controller.c
+
+int buscaIndicePista(int num_pista)
+Essa é uma função auxiliar utilizada pela controlePistas()
+Essa função percorre o vetor pistas a busca de uma pista recebida como parâmetro.
+Encontrando essa pista, é retornado o índice dela no vetor.
+Caso ela não seja encontrada, é retornado -1.
+
+void calculaPrioridade();
+Essa função é executada várias vezes pelo loop principal do programa para determinar a ordem de priodade de execução das aeronaves.
+Inicialmente, é calculada a distância de todas as aeronaves até a pista de pouso.
+Então, o vetor array_indices é ordenado por uma bubble sort que busca armazenar índices a partir da menor pra maior distância entre aeronave-pista.
+Ao final, é impresso o resultado da ordenação.
+
+void criaAeronaves();
+Essa função poderia ter sido implementada na main(), mas foi feita aqui apenas para melhor leitura do código.
+Ela faz n forks e ordena que o executável gerado por aeronave.c seja executado.
+
+void controlePistas();
+Essa função é responsável pelo controle da ocupação das pistas de pouso.
+Ela faz a mesma coisa para todas as aeronaves.
+Primeiramente, é conferida a pista de pouso preferida da aeronave. 
+Em seguida, é feita uma comparação que confere qual pista está mais vazia, a preferida ou a alternativa.
+Então, a função decide qual pista é melhor para a aeronave.
+Se for necessária a mudança de pista, é enviado um SIGUSR2 ao processo correspondente que trata esse sinal e muda a pista da aeronave.
+Ao final, a ocupação da pista de pouso escolhida é atualizada.
+
+int controleColisao(int i)
+Essa talvez seja a função mais importante do programa. Ela é responsável por evitar que as aeronaves colidam.
+Recebendo o índice da aeronave a ser feita a conferência, ela é comparada com as outras aeronaves no espaço aéreo.
+Primeiramente, é feito um cálculo de distância dela para as demais com base em sua posição atual. 
+Caso seja identificada que uma colisão é eminente, é enviado um SIGKILL para o processo responsável pela aeronave em questão, que encerra o processo.
+Após isso, é feito um novo cálculo de distância mas agora fazendo uma projeção de onde a aeronave estará assim que fizer seu próximo movimento.
+Caso seja constado que seu próximo movimento pode gerar uma colisão, a função ordena que a aeronave reduza sua velocidade (na prática ela fica parada) a partir de um SIGUSR1 enviado ao processo da aeronave em questão.
+Ao final, caso a aeronave esteja parada, é feita conferência se seu próximo movimento ainda pode gerar uma colisão.
+Caso constado que não, o SIGUSR1 é utilizado novamente porém desta vez para ordenar que a aeronave aumente sua velocidade (na prática, que ela volte a se movimentar).
+
+int controleEngavetamento()
+Essa função é bem situacional. Foi vista durante os testes a seguinte situação: duas aeronaves paradas não voltam a se movimentar porque seu próximo movimento poderia gerar uma colisão.
+A lógica dela funciona de maneira similar à controleColisao.
+É feita uma conferência entre todas as aeronaves que estão paradas a ver quantas estão nessa situação.
+Se só essas aeronaves ainda não pousaram, a função ordena que uma delas seja remetida (repetindo a lógica com SIGKILL). 
+A escolha de qual aeronave será remetida é feita com base no menor ID.
+
+int verificaEntrada(int i)
+Essa função só é executada quando uma aeronave passa do seu momento e ativação e deseja entrar de fato no espaço aéreo.
+É feito um cálculo da distância entre ela e as demais aeronaves com base na sua situação atual. 
+Caso seja detectada uma colisão emimente, a aeronave tem sua entrada negada e é remetida, utilizando SIGKILL para encerrar o processo correspondente
+
+void formalizaFim(Aeronave* aeronave)
+Essa função foi implementada apenas para evitar a repetição de código de alguns procedimentos que devem ser executados quando uma aeronave pousar ou for remetida.
+A quantidade de processos finalizados é incrementada, é impressa uma mensagem indicando a quantidade de processos finalizados e a ocupação da pista é reduzida
+
+void imprimeResultados()
+Essa função conta quantas aeronaves foram finalizadas e quantas foram remetida e então exibe na tela.
+
+void* interface(void* arg)
+Essa função é responsável pela exibição da interface e pela captura dos comandos do usuário.
+Além disso, ela é uma thread que é executada em paralelo com a main()
+Ela espera que o usuário entre com ENTER e então exibe todas as opções disponibilizadas ao usuário.
+Então, ela executa a funcionalidade relacionada ao comando do usuário.
+Essa função fica em loop até que todas as aeronaves pousem ou sejam remetidas
+
+--- * --- --- * --- --- * --- 
+
+utils.c 
+
+float movimentaX(struct Aeronave *aeronave)
+Essa função é responsável por calcular a nova coordenada X da aeronave, simulando o seu deslocamento no eixo horizontal.
+A direção do movimento depende da direção da aeronave:
+- Se a direção for 'E' (leste), a aeronave se desloca da direita para o centro, reduzindo o valor de x.
+- Se a direção for 'W' (oeste), a aeronave se desloca da esquerda para o centro, aumentando o valor de x.
+A velocidade da aeronave determina o quanto ela avança por iteração. A função garante que a coordenada x nunca ultrapasse o valor 0.5, que representa o ponto central da pista de pouso.
+O valor retornado é o novo x após a movimentação.
+
+float movimentaY(struct Aeronave *aeronave)
+Essa função calcula a nova coordenada Y da aeronave, simulando o deslocamento no eixo vertical em direção ao centro da pista.
+O movimento vertical depende da posição atual da aeronave:
+- Se o valor de y for menor que 0.5, a aeronave se desloca para cima (aumenta o valor de y).
+- Se for maior que 0.5, a aeronave se desloca para baixo (diminui o valor de y).
+A movimentação é feita com base na velocidade da aeronave, e o valor de y é limitado para não ultrapassar o centro (valor exato de 0.5).
+A função retorna o novo valor de y após o deslocamento.
+
+void imprimeAeronave(struct Aeronave *aeronave)
+Essa é uma função utilitária usada para exibir no terminal as principais informações de uma aeronave durante a execução do programa.
+Ao ser chamada, ela imprime uma linha contendo: ID da aeronave, Coordenadas atuais (x e y), Direção de aproximação (W ou E), Velocidade atual, Número da pista preferida, Status da aeronave (convertido em string pela função stringStatus()), Valor do delay sorteado, PID do processo responsável por essa aeronave.
+É usada para fins de debug e monitoramento do estado das aeronaves, especialmente na interface de comandos e após a criação inicial.
+
+const char* stringStatus(int status)
+Essa função é utilizada para converter o valor numérico de um status de aeronave (do tipo enum StatusAeronave) em uma string legível.
+Ela recebe como parâmetro um inteiro status, e retorna:
+- "VOANDO" se o status for VOANDO (0)
+- "AGUARDANDO" se for AGUARDANDO (1)
+- "FINALIZADO" se for FINALIZADO (2)
+- "REMETIDA" se for REMETIDA (3)
+- "DELAY" se for DELAY (4)
+- "DESCONHECIDO" para qualquer outro valor não previsto no enum
+A função é especialmente útil para impressão amigável dos estados das aeronaves na tela, como ocorre em imprimeAeronave().
+
+int alteraPista(int pista)
+Essa função é utilizada para alternar a pista preferida de uma aeronave para uma pista equivalente, mas oposta ou alternativa.
+Ela recebe como parâmetro um inteiro pista, que representa o número da pista atual, e retorna:
+- 27 se a pista recebida for 6
+- 6 se for 27
+- 3 se for 18
+- 18 se for 3
+- -1 caso a pista não seja reconhecida como uma das opções válidas
+Essa função é empregada no processo de redistribuição de aeronaves para evitar conflitos de ocupação nas pistas de pouso, como ocorre em controlePistas().
+
+--- * --- --- * --- --- * --- 
+
+aeronave.c
+
+void toggle_velocidade(int sig)
+Essa função é um handler de sinal associada ao SIGUSR1, usada para alternar o estado de velocidade (movimento) de uma aeronave.
+Ela é chamada automaticamente quando o processo da aeronave recebe o sinal SIGUSR1, e funciona da seguinte maneira:
+- Se a aeronave estiver com status VOANDO, ela é pausada e seu status muda para AGUARDANDO.
+- Se a aeronave estiver com status AGUARDANDO, ela é retomada e seu status muda para VOANDO.
+Além de alterar o status, a função realiza uma espera de 1 segundo (sleep(1)) para garantir que o controller tenha tempo de aplicar mecanismos de segurança, como controle de colisão e engavetamento, antes de permitir a próxima movimentação da aeronave.
+Essa função é usada pelo controller como forma de coordenar o tráfego aéreo dinamicamente.
+
+void toggle_pista(int sig)
+Essa função é um handler de sinal associada ao SIGUSR2, utilizada para alternar a pista preferida de uma aeronave.
+Ela é acionada automaticamente quando o processo da aeronave recebe o sinal SIGUSR2, funcionando da seguinte forma:
+- A função imprime no terminal que a pista será alterada, informando a pista atual.
+- Em seguida, ela chama a função auxiliar alteraPista(), que retorna a pista alternativa correspondente (ex: troca 6 por 27, 18 por 3, etc.).
+- Por fim, imprime a nova pista atribuída à aeronave.
+Essa troca de pista é útil para redistribuir a carga entre as pistas disponíveis e evitar congestionamentos, sendo utilizada principalmente pela função controlePistas() do controller.
+
+void toggle_pista(int sig)
+Essa função é um handler de sinal associada ao SIGUSR2, utilizada para alternar a pista preferida de uma aeronave.
+Ela é acionada automaticamente quando o processo da aeronave recebe o sinal SIGUSR2, funcionando da seguinte forma:
+- A função imprime no terminal que a pista será alterada, informando a pista atual.
+- Em seguida, ela chama a função auxiliar alteraPista(), que retorna a pista alternativa correspondente (ex: troca 6 por 27, 18 por 3, etc.).
+- Por fim, imprime a nova pista atribuída à aeronave.
+Essa troca de pista é útil para redistribuir a carga entre as pistas disponíveis e evitar congestionamentos, sendo utilizada principalmente pela função controlePistas() do controller.
+
+--- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
+
+Como as coordenadas das aeronaves são geradas aleatoriamente, os testes foram as várias execuções do programas.
+Contudo, esses testes foram feitos para 5, 10 e 20 aeronaves, como pede o enunciado.
