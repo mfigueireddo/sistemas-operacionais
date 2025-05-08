@@ -27,14 +27,16 @@ enum StatusAeronave{
     DELAY = 4
 };
 
+// Funções utilizadas por mais de um módulo
 float movimentaX(struct Aeronave *aeronave);
 float movimentaY(struct Aeronave *aeronave);
 void imprimeAeronave(struct Aeronave *aeronave);
 const char* stringStatus(int status);
 int alteraPista(int pista);
 
-
-// Macros do módulo
+// Macros
 #ifndef QTD_AERONAVES
 #define QTD_AERONAVES 5
 #endif
+
+#define QTD_PISTAS 4

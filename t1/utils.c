@@ -38,7 +38,7 @@ float movimentaY(Aeronave *aeronave){
 }
 
 void imprimeAeronave(struct Aeronave *aeronave){
-    printf("ID %d Coordenadas [%.2f, %.2f] Direção %c Velocidade %.1f Pista preferida %d Status %s Delay %d PID %d\n", aeronave->id, aeronave->ponto.x, aeronave->ponto.y, aeronave->direcao, aeronave->velocidade, aeronave->pista_preferida, stringStatus(aeronave->status), aeronave->delay, aeronave->pid);
+    printf("ID %d Coordenadas [%.2f, %.2f] Direção %c Velocidade %.2f Pista preferida %d Status %s Delay %d PID %d\n", aeronave->id, aeronave->ponto.x, aeronave->ponto.y, aeronave->direcao, aeronave->velocidade, aeronave->pista_preferida, stringStatus(aeronave->status), aeronave->delay, aeronave->pid);
 }
 
 const char* stringStatus(int status){

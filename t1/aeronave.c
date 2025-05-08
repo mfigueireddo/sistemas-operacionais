@@ -4,21 +4,21 @@
 #include <signal.h>
 #include <sys/shm.h>
 #include <time.h>
+
+// Arquivos header
 #include "aux.h"
+
+// Estruturas personalizadas do trabalho
+typedef struct Aeronave Aeronave;
 
 // Funções do módulo
 void toggle_velocidade(int sig);
 void toggle_pista(int sig);
 void configurar_inicialmente(struct Aeronave *aeronave, int index);
 
-// 
-typedef struct Aeronave Aeronave;
-
-// Constantes do módulo
-struct Aeronave *minha_aeronave = NULL;
-float velocidade_original = 0.05;
-
-// int flag_velocidade = 0;
+// Variáveis globais do módulo
+static Aeronave *minha_aeronave = NULL;
+static float velocidade_original = 0.05;
 
 int main(int argc, char *argv[]) {
 
@@ -32,32 +32,23 @@ int main(int argc, char *argv[]) {
     // Cria um ponteiro para a memória compartilhada
     struct Aeronave *memoria = ( struct Aeronave *) shmat(shm_id, NULL, 0);
     if (memoria == (void *)-1) { perror("Erro no shmat"); exit(1); }
-
-    // Cria um ponteiro para o espaço reservado para a aeronave
     minha_aeronave = &memoria[index];
 
     configurar_inicialmente(minha_aeronave, index);
 
-    // Instala tratadores de sinal
+    // Instala os tratadores de sinal
     signal(SIGUSR1, toggle_velocidade);
     signal(SIGUSR2, toggle_pista);
 
-    // Para que a aeronave não se mova sem permissão
+    // Tempo suficiente pra aguardar a liberação do controller
     sleep(6);
 
     while (1) {
 
-        // Se a aeronave estiver AGUARDANDO, não anda
+        printf("\nArigato");
+
+        // Inibe qualquer movimento caso a aeronave não tenha permissão do controller
         if(minha_aeronave->status != VOANDO){ 
-            // Evita que a aeronave ande depois de ter permissão pra voar mas antes que se confira a possibilidade de colisão
-            // MUDEI AQUI AGORA
-            /*
-            if (flag_velocidade){
-                minha_aeronave->status = VOANDO;
-                flag_velocidade = !flag_velocidade;
-            }
-            */
-            // printf("\n\n!!! TENTOU VOAR !!!\n\n");
             sleep(2); continue;
         }
 
@@ -71,36 +62,38 @@ int main(int argc, char *argv[]) {
         // Confere se chegou no destino
         if (minha_aeronave->ponto.x == 0.5 && minha_aeronave->ponto.y == 0.5) break;
 
-        // Para que a aeronave não avance mais de 1 unidade por vez
+        // Delay para que a aeronave só avance 1x a cada permissão
         sleep(3);
     }
 
     printf("\n✅ Aeronave %d pousou na pista %d. Encerrando processo ✅\n", minha_aeronave->id, minha_aeronave->pista_preferida);
     minha_aeronave->status = FINALIZADO;
 
+    // Libera o necessário
     shmdt(memoria);
 
     return 0;
 }
 
+// Handler de velocidade
 void toggle_velocidade(int sig) {
 
+    // Se a aeronave estiver voando, ela passa a fica parada
     if(minha_aeronave->status == VOANDO){
         printf("\n🔁 Aeronave %d aguardando permissão para continuar. 🔁\n", minha_aeronave->id);
         minha_aeronave->status = AGUARDANDO;
     }
+    // Se a aeronave estiver parada, ela passa a voar
     else{
         printf("\n🔁 Aeronave %d continuando o trajeto 🔁\n", minha_aeronave->id);
-
-        // MUDEI AQUI AGORA
         minha_aeronave->status = VOANDO;
-        //flag_velocidade = !flag_velocidade;
     }
 
-    // MUDEI AQUI AGORA
+    // Tempo para que a aeronave não ande sem que o controller faça um controle de colisão e engavetamento antes
     sleep(1);
 }
 
+// Handler de pista
 void toggle_pista(int sig) {
 
     printf("\n🔁 Pista da aeronave %d alterada (%d -> ", minha_aeronave->id, minha_aeronave->pista_preferida);
@@ -114,15 +107,12 @@ void configurar_inicialmente(struct Aeronave *aeronave, int index) {
 
     printf("\n🔴 Criando aeronave 🔴\n");
 
-    // Para aleatoriedade diferente entre processos
+    // Garante aleatoridade entre diferentes processos
     srand(time(NULL) + index); 
 
     aeronave->id = index;
-
     aeronave->pid = getpid();
-
-    // Sorteia direção
-    aeronave->direcao = (rand() % 2 == 0) ? 'W' : 'E';
+    aeronave->direcao = (rand() % 2 == 0) ? 'W' : 'E'; // Sorteia direção
 
     // Sorteia ponto de entrada (x fixo e y aleatório)
     if (aeronave->direcao == 'W') {
@@ -132,10 +122,10 @@ void configurar_inicialmente(struct Aeronave *aeronave, int index) {
         aeronave->ponto.x = 1.0;
         aeronave->pista_preferida = (rand() % 2 == 0) ? 6 : 27;
     }
+    aeronave->ponto.y = (float)(rand() % 11) / 10.0; // Sorteia ponto Y entre 0 e 1
 
-    aeronave->ponto.y = (float)(rand() % 11) / 10.0;
     aeronave->velocidade = velocidade_original;
-    aeronave->delay = rand() % 3;
+    aeronave->delay = rand() % 3; // Sorteia delay entre 0 e 2 (inclusos)
     aeronave->status = DELAY;
 
     printf("🟢 Aeronave criada com sucesso 🟢\n");
