@@ -9,14 +9,9 @@
 #include <math.h> // sqrt()
 #include <time.h> // time()
 #include <string.h> // strcspn()
+#include <pthread.h> // pthread
 
-// Interface
-#include <pthread.h>
-pthread_t controller_thread;
-int flag_interface = 0;
-int flag_fecha_thread = 0;
-
-// Arquivos header
+// Arquivo header
 #include "aux.h"
 
 // Estruturas personalizadas do trabalho
@@ -37,16 +32,19 @@ void imprimeResultados(void);
 void* interface(void* arg);
 
 // Variáveis globais do módulo
-static Aeronave *aeronaves = NULL;
-static int pids[QTD_AERONAVES];
-static Pista pistas[QTD_PISTAS] = { {3, 0}, {6, 0}, {18, 0}, {27, 0} };
-static int processos_finalizados = 0;
-static int bloqueados;
-static int indices_ordenados[QTD_AERONAVES];
+Aeronave *aeronaves = NULL;
+int pids[QTD_AERONAVES];
+Pista pistas[QTD_PISTAS] = { {3, 0}, {6, 0}, {18, 0}, {27, 0} };
+int processos_finalizados = 0;
+int bloqueados;
+int indices_ordenados[QTD_AERONAVES];
+pthread_t controller_thread;
+int flag_interface = 0;
+int flag_fecha_thread = 0;
 
 int main(void){
 
-    //printf("Entre com CTRL+\\ para abrir o terminal.\n");
+    printf("🌐 Entre com ENTER para abrir o terminal.\n\n");
 
     // Criando segmento de memória compartilhando
     int segmento_memoria = shmget(IPC_PRIVATE, sizeof(Aeronave)*QTD_AERONAVES, IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
@@ -59,16 +57,12 @@ int main(void){
     // Criando múltiplos processos (aeronaves)
     criaAeronaves(&segmento_memoria, pids);
 
-    // Inicia thread de interface de usuário
+    // Inicia thread responsável pela interface de usuário
     pthread_create(&controller_thread, NULL, interface, NULL);
 
     // Começa pausando todas as aeronaves
     printf("\n⚠️ Ordenando a pausa de todas as aeronaves ⚠️\n");
     for(int i=0; i<QTD_AERONAVES; i++) kill(pids[i], SIGSTOP); 
-
-    // Aciona a interface quando o usuário entra com CTRL+\ .
-    //signal(SIGQUIT, interface);
-    //signal(SIGINT, interface);
 
     // Confere se não há aeronaves com a mesma pista de destino
     controlePistas(aeronaves, pids);
@@ -90,6 +84,7 @@ int main(void){
 
     while(1){
 
+        // Não faz nada se a interface estiver em execução
         if(flag_interface) continue;
 
         // Itera sobre a ordem de prioridade e não sobre o ID das aeronaves
@@ -126,9 +121,6 @@ int main(void){
 
         // Se a aeronave tiver permissão para continuar
         if (aeronaves[i].status == VOANDO){
-            // printf("\nTESTE: Enviando sinal para processo continuar\n");
-            //imprimeAeronave(&aeronaves[i]);
-            //if (kill(pids[i], 0) == 0) printf("Processo vivo\n");
             kill(pids[i], SIGCONT);
             sleep(1); // Dá um tempo para aeronave.c aplicar as mudanças de posição
             kill(pids[i], SIGSTOP);
@@ -480,23 +472,16 @@ void* interface(void* arg) {
 
     while (1) {
 
+        // Se todas as aeronaves tiverem pousado, quebra o loop e termina a thread
         if (flag_fecha_thread) break;
 
+        // Se o usuário não tiver ordenado a exibição da interface
         if (!flag_interface){
             char entrada = getchar();
-    
-            /*
-            // Limpa o buffer caso ainda haja '\n' sobrando
-            while (entrada != '\n' && entrada != EOF) {
-                entrada = getchar();
-            }
-            */
-
-            if (entrada == '\n') {
-                flag_interface = 1;
-            }
+            if (entrada == '\n') { flag_interface = 1; }
         }
 
+        // Se o usuário tiver ordenado a exibição da interface
         if (flag_interface){
             printf("\n📖 Comandos disponíveis:\n");
             printf("  status          → mostra todas as informações das aeronaves\n");

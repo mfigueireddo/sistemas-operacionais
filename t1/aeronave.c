@@ -17,8 +17,8 @@ void toggle_pista(int sig);
 void configurar_inicialmente(struct Aeronave *aeronave, int index);
 
 // Variáveis globais do módulo
-static Aeronave *minha_aeronave = NULL;
-static float velocidade_original = 0.05;
+Aeronave *minha_aeronave = NULL;
+float velocidade_original = 0.05;
 
 int main(int argc, char *argv[]) {
 
@@ -44,8 +44,6 @@ int main(int argc, char *argv[]) {
     sleep(6);
 
     while (1) {
-
-        //printf("\nProcesso aeronave\n");
 
         // Inibe qualquer movimento caso a aeronave não tenha permissão do controller
         if(minha_aeronave->status != VOANDO){ 
