@@ -8,6 +8,8 @@ $ gcc controller.c utils.c -o controller -lm -DQTD_AERONAVES=_
 $ gcc aeronave.c utils.c -o aeronave -lm
 $ ./controller
 
+No trecho -DQTD_AERONAVES=_, o _ deve ser substituído pelo número de aeronaves/processos que você deseja simular (ex: 5, 10, 20 etc). Essa diretiva define a macro QTD_AERONAVES durante a compilação.
+
 O projeto funciona com 3 arquivos .c:
 - controller.c: arquivo que representa o processo-pai onde outros processos são criados, onde é feito o controle de colisão entre aeronaves e onde a interface é desenvolvida
 - aeronave.c: arquivo que representa n processos-filho onde é feito o movimento das aeronaves, assim como sua configuração, mudança de velocidade e mudança de pista
@@ -199,14 +201,19 @@ Ela é acionada automaticamente quando o processo da aeronave recebe o sinal SIG
 - Por fim, imprime a nova pista atribuída à aeronave.
 Essa troca de pista é útil para redistribuir a carga entre as pistas disponíveis e evitar congestionamentos, sendo utilizada principalmente pela função controlePistas() do controller.
 
-void toggle_pista(int sig)
-Essa função é um handler de sinal associada ao SIGUSR2, utilizada para alternar a pista preferida de uma aeronave.
-Ela é acionada automaticamente quando o processo da aeronave recebe o sinal SIGUSR2, funcionando da seguinte forma:
-- A função imprime no terminal que a pista será alterada, informando a pista atual.
-- Em seguida, ela chama a função auxiliar alteraPista(), que retorna a pista alternativa correspondente (ex: troca 6 por 27, 18 por 3, etc.).
-- Por fim, imprime a nova pista atribuída à aeronave.
-Essa troca de pista é útil para redistribuir a carga entre as pistas disponíveis e evitar congestionamentos, sendo utilizada principalmente pela função controlePistas() do controller.
-
+void configurar_inicialmente(struct Aeronave *aeronave, int index)
+Essa função é responsável por configurar os valores iniciais da estrutura Aeronave no momento em que o processo da aeronave é criado.
+Ela é chamada logo no início da execução do aeronave.c e executa os seguintes passos:
+- Define o id da aeronave com base no índice recebido como parâmetro.
+- Registra o pid do processo atual.
+- Sorteia a direção da aeronave ('W' ou 'E').
+- Define o ponto inicial no eixo X de acordo com a direção:
+	'W' começa em 0.0 com preferência por pista 18 ou 3.
+	'E' começa em 1.0 com preferência por pista 6 ou 27.
+- Sorteia o ponto inicial no eixo Y (valor entre 0.0 e 1.0).
+- Define a velocidade original, um delay aleatório (entre 0 e 2 segundos) e o status inicial como DELAY.
+- Imprime no terminal os dados da aeronave configurada.
+Essa função garante que cada aeronave tenha parâmetros únicos e realistas ao entrar no sistema de controle.
 --- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
 
 Como as coordenadas das aeronaves são geradas aleatoriamente, os testes foram as várias execuções do programas.
