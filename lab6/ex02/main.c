@@ -1,5 +1,6 @@
 #include <stdio.h>
-#include <sys/stat.h>
+#include <stdlib.h> // exit()
+#include <sys/stat.h> // FIFO
 #include <fcntl.h> // O_WRONLY
 #include <unistd.h> // open(), read(), close(), unlink()
 #include <sys/wait.h> // wait()
@@ -20,21 +21,21 @@ int main(void)
         pid = fork();
         if (pid == 0) // Filho
         {
-            execl("./ex02-filho", "ex02-filho", NULL);
-            return 0;
+            execl("./filho", "filho", NULL);
+            exit(1);
         }
     }
-
-    // Espera os filhos terminarem
-    wait(NULL);
 
     // Abre a FIFO no modo leitura
     int fifo;
     if ((fifo = open(FIFO, OPEN_MODE)) < 0){ fprintf(stderr, "Erro na abertura da FIFO\n"); return 1; }
 
+    // Espera os filhos terminarem
+    for(int i=0; i<2; i++){ wait(NULL); }
+
     // Lê as mensagens dos processos-filho e as exibe na tela
     char mensagem[100]; int size;
-    while((size = read(fifo, &mensagem, sizeof(mensagem))) > 0) 
+    while((size = read(fifo, mensagem, sizeof(mensagem))) > 0) 
     {
         mensagem[size] = '\0';
         printf("Lido: %s\n", mensagem);

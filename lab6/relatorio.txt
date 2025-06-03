@@ -1,0 +1,201 @@
+Matheus Moreira da Silva Figueiredo - 2320813
+Luana Nobre da Costa - 2310204
+
+--- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
+
+1) Abra duas seções de terminais 
+- Na primeira, execute um programa que fica em loop lendo de uma FIFO para depois escrever na saída padrão (tela) 
+- Na segunda, execute um programa que fica lendo da entrada padrão (teclado) e depois escreve na mesma FIFO
+
+leitura.c
+#include <stdio.h>
+#include <sys/stat.h>
+#include <fcntl.h> // O_WRONLY
+#include <unistd.h> // read(), close(), unlink()
+#include <string.h> // strcmp()
+
+#define FIFO "fifo_name"
+#define OPEN_MODE O_RDONLY
+
+int main(void)
+{
+    // Criar uma FIFO
+    if(mkfifo(FIFO, S_IRUSR | S_IWUSR) != 0){ fprintf(stderr, "Erro na criação da FIFO\n"); }
+
+    // Abrir a FIFO
+    int fifo;
+    if ((fifo = open(FIFO, OPEN_MODE)) < 0){ fprintf(stderr, "Erro na abertura da FIFO\n"); return 1; }
+
+    // Loop que lê os dados da FIFO e escreve na tela
+    char mensagem[100]; int size;
+    while((size = read(fifo, &mensagem, sizeof(mensagem))) > 0) 
+    {
+        mensagem[size] = '\0';
+        if (strcmp(mensagem, "stop") == 0){ break; }
+        printf("Lido: %s\n", mensagem);
+    }
+
+    // Fecha a FIFO
+    close(fifo);
+
+    // Deleta a FIFO
+    if (unlink(FIFO) != 0){ fprintf(stderr, "Erro ao deletar a FIFO"); }
+
+    return 0;
+}
+
+escrita.c
+#include <stdio.h>
+#include <sys/stat.h>
+#include <fcntl.h> // O_WRONLY
+#include <unistd.h> // read(), close()
+#include <string.h> // strcmp()
+
+#define FIFO "fifo_name"
+#define OPEN_MODE O_WRONLY
+
+int main(void)
+{
+    // Abrir a FIFO
+    int fifo;
+    if ((fifo = open(FIFO, OPEN_MODE)) < 0){ fprintf(stderr, "Erro na abertura da FIFO\n"); return 1; }
+
+    // Loop que lê os dados da FIFO e escreve na tela
+    char mensagem[100];
+    do
+    {
+        printf("Insira uma mensagem: ");
+        scanf("%s", mensagem);
+        write(fifo, mensagem, strlen(mensagem));
+    } while(strcmp(mensagem, "stop") != 0);
+
+    // Fecha a FIFO
+    close(fifo);
+
+    return 0;
+}
+
+Compilação e execução (terminal de leitura)
+$ gcc leitura.c -o leitura
+$ ./leitura
+
+Resultado (terminal de leitura)
+Lido: teste1
+Lido: teste2
+
+Compilação e execução (terminal de escrita)
+$ gcc escrita.c -o escrita
+$ ./escrita
+
+Resultado (terminal de escrita)
+Insira uma mensagem: teste1
+Insira uma mensagem: teste2
+Insira uma mensagem: stop
+
+Conclusão
+No programa de leitura, é criada uma FIFO que será responsável pela comunicação entre os programas. Ao final do programa de leitura, ela será destruída com unlink().
+Em ambos programas é feita a "abertura" da FIFO no modo correspondente.
+O programa de escrita vai ser encerrado assim que o usuário entrar com "stop".
+Na maneira atual, se o usuário entrar com alguma string do tipo "teste 1", o programa de leitura irá ler separadamente "teste" e "1".
+A FIFO foi aberta de modo que o programa de leitura espera que o programa de escrita também abra a FIFO.
+
+--- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
+
+2) Escreva um programa que primeiro criauma FIFO e em seguida cria dois processos filho que escrevem uma string na FIFO. 
+O pai dá um waitpid em seguida lê as strings desse FIFO e exibe na tela.
+
+main.c
+#include <stdio.h>
+#include <stdlib.h> // exit()
+#include <sys/stat.h> // FIFO
+#include <fcntl.h> // O_WRONLY
+#include <unistd.h> // open(), read(), close(), unlink()
+#include <sys/wait.h> // wait()
+
+#define FIFO "fifo_name"
+#define OPEN_MODE O_RDONLY
+#define QTD_PROCESSOS 2
+
+int main(void)
+{
+    // Criar uma FIFO
+    if(mkfifo(FIFO, S_IRUSR | S_IWUSR) != 0){ fprintf(stderr, "Erro na criação da FIFO\n"); }
+
+    // Cria 2 processos-filho
+    int pid;
+    for(int i=0; i<QTD_PROCESSOS; i++)
+    {
+        pid = fork();
+        if (pid == 0) // Filho
+        {
+            execl("./filho", "filho", NULL);
+            exit(1);
+        }
+    }
+
+    // Abre a FIFO no modo leitura
+    int fifo;
+    if ((fifo = open(FIFO, OPEN_MODE)) < 0){ fprintf(stderr, "Erro na abertura da FIFO\n"); return 1; }
+
+    // Espera os filhos terminarem
+    for(int i=0; i<2; i++){ wait(NULL); }
+
+    // Lê as mensagens dos processos-filho e as exibe na tela
+    char mensagem[100]; int size;
+    while((size = read(fifo, mensagem, sizeof(mensagem))) > 0) 
+    {
+        mensagem[size] = '\0';
+        printf("Lido: %s\n", mensagem);
+    } 
+
+    // Fecha a FIFO
+    close(fifo);
+
+    // Deleta a FIFO
+    if (unlink(FIFO) != 0){ fprintf(stderr, "Erro ao deletar a FIFO"); }
+
+    return 0;
+}
+
+filho.c
+#include <stdio.h>
+#include <sys/stat.h> // FIFO
+#include <fcntl.h> // O_WRONLY
+#include <unistd.h> // open(), write(), close()
+#include <string.h> // strlen()
+
+#define FIFO "fifo_name"
+#define OPEN_MODE O_WRONLY
+#define QTD_PROCESSOS 2
+
+int main(void)
+{
+    // Abre a FIFO no modo escrita
+    int fifo;
+    if ((fifo = open(FIFO, OPEN_MODE)) < 0){ fprintf(stderr, "Erro na abertura da FIFO\n"); return 1; }
+
+    // Lê as mensagens dos processos-filho e as exibe na tela
+    char mensagem[100];
+    sprintf(mensagem, "Mensagem do filho %d", getpid());
+    write(fifo, mensagem, strlen(mensagem));
+
+    // Fecha a FIFO
+    close(fifo);
+
+    return 0;
+}
+
+Compilação e execução
+$ gcc main.c -o main
+$ ./main
+
+Resultado
+Lido: Mensagem do filho 2006
+Lido: Mensagem do filho 2007
+
+Conclusão
+Nesse exercício foram feitos 2 programas: 1 deles que vai representar o processo pai e 1 deles que vai representar os processos filhos
+O processo pai é responsável por criar e destruir a FIFO, dar forks() para criar os processos filhos e ler os dados que são escritos pelos filhos.
+Quando criados os processos-filhos, o programa filho.c é executado.
+
+--- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
