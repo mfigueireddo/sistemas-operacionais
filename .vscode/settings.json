@@ -5,6 +5,8 @@
         "stdio.h": "c",
         "stdlib.h": "c",
         "ipc.h": "c",
-        "time.h": "c"
+        "time.h": "c",
+        "fcntl.h": "c",
+        "stat.h": "c"
     }
 }

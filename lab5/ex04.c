@@ -7,9 +7,13 @@
 #define MAXFILA 8
 #define MAXITENS 64
 
+#define QTD_PRODUTORES 2
+#define QTD_CONSUMIDORES 2
+
 int buffer[MAXFILA];
-int idx_consumidor = 0, idx_produtor = 0, cont_buffer = 0;
-int cont_produtos = 0, cont_consumidos = 0;
+int idx_produtor = 0, idx_consumidor = 0;
+int cont_buffer = 0, cont_produtos = 0, cont_consumidos = 0;
+int flag_thread_encerrada = 0;
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t flag_buffer_vazio = PTHREAD_COND_INITIALIZER;
@@ -21,15 +25,20 @@ void* consumidor(void* arg);
 int main() 
 {
     srand(time(NULL));
-    pthread_t thread_produtor, thread_consumidor;
 
-    pthread_create(&thread_produtor, NULL, produtor, NULL);
-    pthread_create(&thread_consumidor, NULL, consumidor, NULL);
+    pthread_t threads_produtores[QTD_PRODUTORES];
+    for(int i=0; i<QTD_PRODUTORES; i++){ pthread_create(&threads_produtores[i+1], NULL, produtor, i+1); }
 
-    pthread_join(thread_produtor, NULL);
-    pthread_join(thread_consumidor, NULL);
+    pthread_t threads_consumidores[QTD_PRODUTORES];
+    for(int i=0; i<QTD_PRODUTORES; i++){ pthread_create(&threads_consumidores[i+1], NULL, consumidor, i+1); }
+
+    for(int i=0; i<QTD_PRODUTORES; i++){ pthread_join(threads_produtores[i], NULL); }
+    for(int i=0; i<QTD_PRODUTORES; i++){ pthread_join(threads_consumidores[i], NULL); }
 
     printf("Programa encerrado.\n");
+    printf("> %d itens produzidos\n", cont_consumidos);
+    printf("> %d itens consumidos\n", cont_consumidos);
+
     return 0;
 }
 
@@ -40,6 +49,20 @@ void* produtor(void* arg)
 
         // Restringe acesso à área crítica
         pthread_mutex_lock(&mutex);
+
+        // Se não houverem mais itens a serem produzidos
+        if(cont_produtos >= MAXITENS)
+        {
+            flag_thread_encerrada = 1;
+            
+            // Libera acesso à área crítica
+            pthread_mutex_unlock(&mutex);
+
+            // Avisa o consumidor que há algo no buffer
+            pthread_cond_signal(&flag_buffer_vazio);
+
+            break;
+        }
         
         // Aguarda o esvaziamento do buffer
         while (cont_buffer == MAXFILA) { pthread_cond_wait(&flag_buffer_cheio, &mutex); }
@@ -55,7 +78,7 @@ void* produtor(void* arg)
         cont_buffer++;
         cont_produtos++;
 
-        printf("Produtor\n");
+        printf("Produtor %d\n", (int)arg);
         printf("> Número gerado: %d\n", random_data);
         printf("> Buffer atual: %d de no máximo %d no buffer\n\n", cont_buffer, MAXFILA);
         
@@ -79,6 +102,18 @@ void* consumidor(void* arg)
         // Restringe acesso à área crítica
         pthread_mutex_lock(&mutex);
         
+        // Se não houver mais produtos para consumir
+        if(flag_thread_encerrada && cont_buffer == 0)
+        {
+            // Libera acesso à área crítica
+            pthread_mutex_unlock(&mutex);
+
+            // Avisa o produtor que o buffer foi esvaziado (mesmo que parcialmente)
+            pthread_cond_signal(&flag_buffer_cheio);
+
+            break;
+        }
+
         // Aguarda que até que haja algo no buffer
         while (cont_buffer == 0) { pthread_cond_wait(&flag_buffer_vazio, &mutex); }
 
@@ -90,7 +125,7 @@ void* consumidor(void* arg)
         cont_buffer--;
         cont_consumidos++;
 
-        printf("Consumidor\n");
+        printf("Consumidor %d\n", (int)arg);
         printf("> Número processado: %d\n", random_data);
         printf("> Buffer atual: %d de no máximo %d no buffer\n\n", cont_buffer, MAXFILA);
         

@@ -1,0 +1,1553 @@
+Matheus Moreira da Silva Figueiredo - 2320813
+Luana Nobre da Costa - 2310204
+
+--- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
+
+1) Execute o programa Corrida de Sapo algumas vezes e analise os resultados sobre a ordem de chegada dossapos. 
+Obs: compile com a opção –lpthread
+
+ex01.c
+#include <stdio.h>   
+#include <stdlib.h>  
+#include <pthread.h>
+#include <unistd.h>  
+#include <time.h>
+#define NUM_THREADS 5
+#define PULO_MAXIMO 100
+#define DESCANSO_MAXIMO 1
+#define DISTANCIA_PARA_CORRER 100
+static int classificacao = 1;
+static pthread_mutex_t lock;
+static char * resp[200];
+static int cont = 0;
+
+void *Correr(void *sapo);
+
+int main(){
+    classificacao =1;
+    pthread_t threads[NUM_THREADS];
+    int t;
+    printf("Corrida iniciada ... \n");
+
+    for(t=0;t < NUM_THREADS;t++) pthread_create(&threads[t], NULL, Correr, (void *) t);
+    for(t=0;t < NUM_THREADS; t++) pthread_join(threads[t],NULL);
+
+    printf("\n Acabou!!\n");
+    pthread_exit(NULL);
+}
+
+void *Correr(void *sapo){
+    int pulos = 0;
+    int distanciaJaCorrida = 0;
+
+    while (distanciaJaCorrida <= DISTANCIA_PARA_CORRER) {
+        int pulo = rand() % PULO_MAXIMO;
+        distanciaJaCorrida += pulo;
+        pulos++;
+        printf("Sapo %d distancia %d\n",(int) sapo,distanciaJaCorrida);
+        printf("Sapo %d pulou\n", (int) sapo);
+        int descanso = rand() % DESCANSO_MAXIMO;
+        sleep(descanso);
+    }
+
+    printf("Sapo %d chegou na posicaoo %d com %d pulos\n", (int) sapo, classificacao, pulos);
+    cont++;
+    classificacao++;
+    pthread_exit(NULL);
+}
+
+Compilação e execução
+$ gcc ex01.c -o exe -lpthread
+$ ./exe
+
+Resultado
+Corrida iniciada ... 
+Sapo 0 distancia 33
+Sapo 0 pulou
+Sapo 1 distancia 33
+Sapo 0 distancia 95
+Sapo 1 pulou
+Sapo 2 distancia 33
+Sapo 0 pulou
+Sapo 3 distancia 33
+Sapo 4 distancia 33
+Sapo 1 distancia 95
+Sapo 2 pulou
+Sapo 0 distancia 95
+Sapo 3 pulou
+Sapo 4 pulou
+Sapo 1 pulou
+Sapo 2 distancia 95
+Sapo 0 pulou
+Sapo 3 distancia 95
+Sapo 4 distancia 95
+Sapo 1 distancia 95
+Sapo 2 pulou
+Sapo 0 distancia 147
+Sapo 3 pulou
+Sapo 4 pulou
+Sapo 1 pulou
+Sapo 2 distancia 95
+Sapo 0 pulou
+Sapo 3 distancia 95
+Sapo 4 distancia 95
+Sapo 1 distancia 147
+Sapo 2 pulou
+Sapo 0 chegou na posicaoo 1 com 4 pulos
+Sapo 3 pulou
+Sapo 4 pulou
+Sapo 1 pulou
+Sapo 2 distancia 147
+Sapo 3 distancia 147
+Sapo 4 distancia 147
+Sapo 1 chegou na posicaoo 2 com 4 pulos
+Sapo 2 pulou
+Sapo 3 pulou
+Sapo 4 pulou
+Sapo 2 chegou na posicaoo 3 com 4 pulos
+Sapo 3 chegou na posicaoo 3 com 4 pulos
+Sapo 4 chegou na posicaoo 3 com 4 pulos
+
+Conclusão
+Percebe-se que a classificação dos sapos não reflete de maneira correta a ordem de chegada. 
+Isso acontece porque eles tentam acessar de maneira concorrente a variável responsável pela classificação, o que acaba gerando inconsistência nos dados já que a variável de referência perde a noção real da ordem.
+
+--- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
+
+2) Usando mutex, modifique o programa Corrida de Sampo para que o problema identificado anteriormente não ocorra.
+
+ex02.c
+#include <stdio.h>   
+#include <stdlib.h>  
+#include <pthread.h>
+#include <unistd.h>  
+#include <time.h>
+#define NUM_THREADS 5
+#define PULO_MAXIMO 100
+#define DESCANSO_MAXIMO 1
+#define DISTANCIA_PARA_CORRER 100
+static int classificacao = 1;
+static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER; // Inicializa o mutex
+static char * resp[200];
+static int cont = 0;
+
+void *Correr(void *sapo);
+
+int main(){
+    classificacao =1;
+    pthread_t threads[NUM_THREADS];
+    int t;
+    printf("Corrida iniciada ... \n");
+
+    for(t=0;t < NUM_THREADS;t++) pthread_create(&threads[t], NULL, Correr, (void *) t);
+    for(t=0;t < NUM_THREADS; t++) pthread_join(threads[t],NULL);
+
+    printf("\n Acabou!!\n");
+    pthread_exit(NULL);
+}
+
+void *Correr(void *sapo){
+    int pulos = 0;
+    int distanciaJaCorrida = 0;
+
+    while (distanciaJaCorrida <= DISTANCIA_PARA_CORRER) {
+        int pulo = rand() % PULO_MAXIMO;
+        distanciaJaCorrida += pulo;
+        pulos++;
+        printf("Sapo %d distancia %d\n",(int) sapo,distanciaJaCorrida);
+        printf("Sapo %d pulou\n", (int) sapo);
+        int descanso = rand() % DESCANSO_MAXIMO;
+        sleep(descanso);
+    }
+
+    // Região crítica
+    pthread_mutex_lock(&lock); // Restringe o acesso à área
+    printf("Sapo %d chegou na posicaoo %d com %d pulos\n", (int) sapo, classificacao, pulos);
+    cont++;
+    classificacao++;
+    pthread_mutex_unlock(&lock); // Libera o acesso à área
+    pthread_exit(NULL);
+}
+
+Compilação e execução
+$ gcc ex02.c -o exe -lpthread
+$ ./exe
+
+Resultado
+Corrida iniciada ... 
+Sapo 0 distancia 33
+Sapo 0 pulou
+Sapo 1 distancia 33
+Sapo 2 distancia 33
+Sapo 0 distancia 95
+Sapo 3 distancia 33
+Sapo 1 pulou
+Sapo 2 pulou
+Sapo 4 distancia 33
+Sapo 0 pulou
+Sapo 3 pulou
+Sapo 1 distancia 95
+Sapo 2 distancia 95
+Sapo 4 pulou
+Sapo 0 distancia 95
+Sapo 3 distancia 95
+Sapo 1 pulou
+Sapo 2 pulou
+Sapo 4 distancia 95
+Sapo 0 pulou
+Sapo 3 pulou
+Sapo 1 distancia 95
+Sapo 0 pulou
+Sapo 3 pulou
+Sapo 1 distancia 95
+Sapo 2 distancia 95
+Sapo 4 pulou
+Sapo 4 pulou
+Sapo 0 distancia 147
+Sapo 3 distancia 95
+Sapo 0 distancia 147
+Sapo 3 distancia 95
+Sapo 1 pulou
+Sapo 1 pulou
+Sapo 2 pulou
+Sapo 2 pulou
+Sapo 4 distancia 95
+Sapo 4 distancia 95
+Sapo 0 pulou
+Sapo 3 pulou
+Sapo 1 distancia 147
+Sapo 2 distancia 147
+Sapo 4 pulou
+Sapo 0 chegou na posicaoo 1 com 4 pulos
+Sapo 3 distancia 147
+Sapo 1 pulou
+Sapo 2 pulou
+Sapo 4 distancia 147
+Sapo 3 pulou
+Sapo 1 chegou na posicaoo 2 com 4 pulos
+Sapo 4 pulou
+Sapo 2 chegou na posicaoo 3 com 4 pulos
+Sapo 3 chegou na posicaoo 4 com 4 pulos
+Sapo 4 chegou na posicaoo 5 com 4 pulos
+
+Acabou!!
+
+Conclusão
+Nesse caso, o mutex restrigiu o acesso à área crítica de memória (que cuidava da ordem de chegada), o que acabou com a concorrência entre as threads nesse trecho, gerando assim uma classificação coerente.
+
+--- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
+
+3) Usando threads, escreva um programa C que implemente o problema do produtor/consumidor. 
+O produtor deve produzir dados (números inteiros pseudo-aleatórios) a cada 1 segundo colocando-os em uma fila (buffer, implementação circular). 
+O consumidor deve retirar dados da fila a cada 2 segundos. 
+O tamanho máximo da fila deve ser de 8 elementos (MAXFILA) e tanto o produtor como o consumidor devem produzir/consumir 64 elementos (números inteiros de 1 a 64, por exemplo) evitando condições de corrida. 
+Variáveis compartilhadas entre threads são simplesmente variáveis globais. 
+
+ex03.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <unistd.h>
+#include <time.h>
+
+#define MAXFILA 8
+#define MAXITENS 64
+
+int buffer[MAXFILA];
+int idx_consumidor = 0, idx_produtor = 0, cont_buffer = 0;
+int cont_produtos = 0, cont_consumidos = 0;
+
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t flag_buffer_vazio = PTHREAD_COND_INITIALIZER;
+pthread_cond_t flag_buffer_cheio = PTHREAD_COND_INITIALIZER;
+
+void* produtor(void* arg);
+void* consumidor(void* arg);
+
+int main() 
+{
+    srand(time(NULL));
+    pthread_t thread_produtor, thread_consumidor;
+
+    pthread_create(&thread_produtor, NULL, produtor, NULL);
+    pthread_create(&thread_consumidor, NULL, consumidor, NULL);
+
+    pthread_join(thread_produtor, NULL);
+    pthread_join(thread_consumidor, NULL);
+
+    printf("Programa encerrado.\n");
+    return 0;
+}
+
+void* produtor(void* arg) 
+{
+    while (cont_produtos < MAXITENS) 
+    {
+
+        // Restringe acesso à área crítica
+        pthread_mutex_lock(&mutex);
+        
+        // Aguarda o esvaziamento do buffer
+        while (cont_buffer == MAXFILA) { pthread_cond_wait(&flag_buffer_cheio, &mutex); }
+
+        // Gera um número aleatório
+        int random_data = rand() % 64 + 1;
+
+        // Coloca o número no buffer
+        buffer[idx_produtor] = random_data;
+
+        // Atualiza variáveis auxiliares
+        idx_produtor = (idx_produtor + 1) % MAXFILA;
+        cont_buffer++;
+        cont_produtos++;
+
+        printf("Produtor\n");
+        printf("> Número gerado: %d\n", random_data);
+        printf("> Buffer atual: %d de no máximo %d no buffer\n\n", cont_buffer, MAXFILA);
+        
+        // Avisa o consumidor que há algo no buffer
+        pthread_cond_signal(&flag_buffer_vazio);
+
+        // Libera acesso à área crítica
+        pthread_mutex_unlock(&mutex);
+        
+        // Produz a cada 1 segundo
+        sleep(1);
+    }
+
+    return NULL;
+}
+
+void* consumidor(void* arg)
+{
+    while (cont_consumidos < MAXITENS) {
+
+        // Restringe acesso à área crítica
+        pthread_mutex_lock(&mutex);
+        
+        // Aguarda que até que haja algo no buffer
+        while (cont_buffer == 0) { pthread_cond_wait(&flag_buffer_vazio, &mutex); }
+
+        // Gera um número aleatório
+        int random_data = buffer[idx_consumidor];
+
+        // Atualiza variáveis auxiliares
+        idx_consumidor = (idx_consumidor + 1) % MAXFILA;
+        cont_buffer--;
+        cont_consumidos++;
+
+        printf("Consumidor\n");
+        printf("> Número processado: %d\n", random_data);
+        printf("> Buffer atual: %d de no máximo %d no buffer\n\n", cont_buffer, MAXFILA);
+        
+        // Avisa o produtor que o buffer foi esvaziado (mesmo que parcialmente)
+        pthread_cond_signal(&flag_buffer_cheio);
+
+        // Libera acesso à área crítica
+        pthread_mutex_unlock(&mutex);
+        
+        // Consome a cada 2 segundos
+        sleep(2);
+    }
+
+    return NULL;
+}
+
+Compilação e execução
+$ gcc ex03.c -o exe -lpthread
+$ ./exe
+
+Resultado
+Produtor
+> Número gerado: 46
+> Buffer atual: 1 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 46
+> Buffer atual: 0 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 16
+> Buffer atual: 1 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 16
+> Buffer atual: 0 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 7
+> Buffer atual: 1 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 42
+> Buffer atual: 2 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 7
+> Buffer atual: 1 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 5
+> Buffer atual: 2 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 53
+> Buffer atual: 3 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 42
+> Buffer atual: 2 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 57
+> Buffer atual: 3 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 25
+> Buffer atual: 4 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 5
+> Buffer atual: 3 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 41
+> Buffer atual: 4 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 40
+> Buffer atual: 5 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 53
+> Buffer atual: 4 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 64
+> Buffer atual: 5 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 64
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 57
+> Buffer atual: 5 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 44
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 50
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 25
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 61
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 26
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 41
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 59
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 40
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 23
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 64
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 10
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 64
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 45
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 44
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 38
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 50
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 24
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 61
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 53
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 26
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 37
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 59
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 5
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 23
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 48
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 10
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 22
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 45
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 41
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 38
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 37
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 24
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 42
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 53
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 24
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 37
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 28
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 5
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 31
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 48
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 33
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 22
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 60
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 41
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 57
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 37
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 41
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 42
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 15
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 24
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 39
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 28
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 21
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 31
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 20
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 33
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 38
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 60
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 23
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 57
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 37
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 41
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 5
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 15
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 32
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 39
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 26
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 21
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 14
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 20
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 4
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 38
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 60
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 23
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 63
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 37
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 17
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 5
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 23
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 32
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 10
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 26
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 30
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 14
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 63
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 4
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 56
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 60
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 7
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 63
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 48
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 17
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 39
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 23
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 25
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 10
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 9
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 30
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 54
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 63
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor
+> Número gerado: 53
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 56
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 7
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 48
+> Buffer atual: 5 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 39
+> Buffer atual: 4 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 25
+> Buffer atual: 3 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 9
+> Buffer atual: 2 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 54
+> Buffer atual: 1 de no máximo 8 no buffer
+
+Consumidor
+> Número processado: 53
+> Buffer atual: 0 de no máximo 8 no buffer
+
+Programa encerrado.
+
+Conclusão
+Implementamos esse programa de maneira que, além do mutex já utilizado no exercício 2 para controle de concorrência, utilizamos flags para identificar se o buffer estava vazio ou cheio.
+Com isso, garantimos que produtor e consumidor não gerem problemas de concorrência e que eles tenham uma leitura coerente de dados do buffer.
+
+--- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
+
+4) Modifique o programa anterior, para que haja 2 (ou mais) threads consumidor e 2 (ou mais) threads produtor.
+O que muda em relação ao uso do mutex e da variável de condição?
+
+ex04.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <unistd.h>
+#include <time.h>
+
+#define MAXFILA 8
+#define MAXITENS 64
+
+#define QTD_PRODUTORES 2
+#define QTD_CONSUMIDORES 2
+
+int buffer[MAXFILA];
+int idx_produtor = 0, idx_consumidor = 0;
+int cont_buffer = 0, cont_produtos = 0, cont_consumidos = 0;
+int flag_thread_encerrada = 0;
+
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t flag_buffer_vazio = PTHREAD_COND_INITIALIZER;
+pthread_cond_t flag_buffer_cheio = PTHREAD_COND_INITIALIZER;
+
+void* produtor(void* arg);
+void* consumidor(void* arg);
+
+int main() 
+{
+    srand(time(NULL));
+
+    pthread_t threads_produtores[QTD_PRODUTORES];
+    for(int i=0; i<QTD_PRODUTORES; i++){ pthread_create(&threads_produtores[i+1], NULL, produtor, i+1); }
+
+    pthread_t threads_consumidores[QTD_PRODUTORES];
+    for(int i=0; i<QTD_PRODUTORES; i++){ pthread_create(&threads_consumidores[i+1], NULL, consumidor, i+1); }
+
+    for(int i=0; i<QTD_PRODUTORES; i++){ pthread_join(threads_produtores[i], NULL); }
+    for(int i=0; i<QTD_PRODUTORES; i++){ pthread_join(threads_consumidores[i], NULL); }
+
+    printf("Programa encerrado.\n");
+    printf("> %d itens produzidos\n", cont_consumidos);
+    printf("> %d itens consumidos\n", cont_consumidos);
+
+    return 0;
+}
+
+void* produtor(void* arg) 
+{
+    while (cont_produtos < MAXITENS) 
+    {
+
+        // Restringe acesso à área crítica
+        pthread_mutex_lock(&mutex);
+
+        // Se não houverem mais itens a serem produzidos
+        if(cont_produtos >= MAXITENS)
+        {
+            flag_thread_encerrada = 1;
+            
+            // Libera acesso à área crítica
+            pthread_mutex_unlock(&mutex);
+
+            // Avisa o consumidor que há algo no buffer
+            pthread_cond_signal(&flag_buffer_vazio);
+
+            break;
+        }
+        
+        // Aguarda o esvaziamento do buffer
+        while (cont_buffer == MAXFILA) { pthread_cond_wait(&flag_buffer_cheio, &mutex); }
+
+        // Gera um número aleatório
+        int random_data = rand() % 64 + 1;
+
+        // Coloca o número no buffer
+        buffer[idx_produtor] = random_data;
+
+        // Atualiza variáveis auxiliares
+        idx_produtor = (idx_produtor + 1) % MAXFILA;
+        cont_buffer++;
+        cont_produtos++;
+
+        printf("Produtor %d\n", (int)arg);
+        printf("> Número gerado: %d\n", random_data);
+        printf("> Buffer atual: %d de no máximo %d no buffer\n\n", cont_buffer, MAXFILA);
+        
+        // Avisa o consumidor que há algo no buffer
+        pthread_cond_signal(&flag_buffer_vazio);
+
+        // Libera acesso à área crítica
+        pthread_mutex_unlock(&mutex);
+        
+        // Produz a cada 1 segundo
+        sleep(1);
+    }
+
+    return NULL;
+}
+
+void* consumidor(void* arg)
+{
+    while (cont_consumidos < MAXITENS) {
+
+        // Restringe acesso à área crítica
+        pthread_mutex_lock(&mutex);
+        
+        // Se não houver mais produtos para consumir
+        if(flag_thread_encerrada && cont_buffer == 0)
+        {
+            // Libera acesso à área crítica
+            pthread_mutex_unlock(&mutex);
+
+            // Avisa o produtor que o buffer foi esvaziado (mesmo que parcialmente)
+            pthread_cond_signal(&flag_buffer_cheio);
+
+            break;
+        }
+
+        // Aguarda que até que haja algo no buffer
+        while (cont_buffer == 0) { pthread_cond_wait(&flag_buffer_vazio, &mutex); }
+
+        // Gera um número aleatório
+        int random_data = buffer[idx_consumidor];
+
+        // Atualiza variáveis auxiliares
+        idx_consumidor = (idx_consumidor + 1) % MAXFILA;
+        cont_buffer--;
+        cont_consumidos++;
+
+        printf("Consumidor %d\n", (int)arg);
+        printf("> Número processado: %d\n", random_data);
+        printf("> Buffer atual: %d de no máximo %d no buffer\n\n", cont_buffer, MAXFILA);
+        
+        // Avisa o produtor que o buffer foi esvaziado (mesmo que parcialmente)
+        pthread_cond_signal(&flag_buffer_cheio);
+
+        // Libera acesso à área crítica
+        pthread_mutex_unlock(&mutex);
+        
+        // Consome a cada 2 segundos
+        sleep(2);
+    }
+
+    return NULL;
+}
+
+Compilação e execução
+$ gcc ex04.c -o exe -lpthread
+$ ./exe
+
+Resultado
+Produtor 1
+> Número gerado: 46
+> Buffer atual: 1 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 46
+> Buffer atual: 2 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 46
+> Buffer atual: 1 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 46
+> Buffer atual: 0 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 16
+> Buffer atual: 1 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 16
+> Buffer atual: 2 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 16
+> Buffer atual: 1 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 16
+> Buffer atual: 0 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 7
+> Buffer atual: 1 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 7
+> Buffer atual: 2 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 42
+> Buffer atual: 3 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 42
+> Buffer atual: 4 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 7
+> Buffer atual: 3 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 5
+> Buffer atual: 4 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 7
+> Buffer atual: 3 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 5
+> Buffer atual: 4 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 53
+> Buffer atual: 5 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 53
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 57
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 42
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 42
+> Buffer atual: 5 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 57
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 25
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 25
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 5
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 5
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 41
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 41
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 53
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 53
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 40
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 40
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 57
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 57
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 64
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 64
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 25
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 25
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 64
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 64
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 41
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 41
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 44
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 44
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 40
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 40
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 50
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 50
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 64
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 61
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 64
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 61
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 64
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 64
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 26
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 26
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 44
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 44
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 59
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 59
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 50
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 50
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 23
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 23
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 61
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 61
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 10
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 10
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 26
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 26
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 45
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 45
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 59
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 59
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 38
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 38
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 23
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 23
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 24
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 24
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 10
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 10
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 53
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 53
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 45
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 45
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 37
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 37
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 38
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 38
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 5
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 5
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 24
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 24
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 48
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 48
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 53
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 53
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 22
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 22
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 37
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 37
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 41
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 41
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 5
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 5
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 37
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 37
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 48
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 48
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 42
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 42
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 22
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 22
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 24
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 24
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 41
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 41
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Produtor 2
+> Número gerado: 28
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Produtor 1
+> Número gerado: 28
+> Buffer atual: 8 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 37
+> Buffer atual: 7 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 37
+> Buffer atual: 6 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 42
+> Buffer atual: 5 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 42
+> Buffer atual: 4 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 24
+> Buffer atual: 3 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 24
+> Buffer atual: 2 de no máximo 8 no buffer
+
+Consumidor 1
+> Número processado: 28
+> Buffer atual: 1 de no máximo 8 no buffer
+
+Consumidor 2
+> Número processado: 28
+> Buffer atual: 0 de no máximo 8 no buffer
+
+Programa encerrado.
+> 64 itens produzidos
+> 64 itens consumidos
+
+Conclusão
+O programa foi implementado de maneira similar porém com um cuidado maior com a concorrência. 
+Agora existe uma condição de parada quando 64 itens são produzidos e consumidos. 
+Foi feito um ajuste para o sinal entre threads acordasse apenas uma das múltiplas threads em espera.
