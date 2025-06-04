@@ -199,3 +199,101 @@ O processo pai é responsável por criar e destruir a FIFO, dar forks() para cri
 Quando criados os processos-filhos, o programa filho.c é executado.
 
 --- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
+
+3) Escreva um programa servidor e um cliente usando duas FIFOs: 
+uma para enviar strings ao servidor e outra para transmitir respostas aos clientes. 
+O servidor roda em background e transforma as mensagens recebidas de minúsculas para maiúsculas.
+
+servidor.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+#include <unistd.h>
+#include <fcntl.h>
+
+#define TAMANHO 256
+
+void converter_para_maiusculas(char *mensagem) {
+    for (int i = 0; mensagem[i]; i++) {
+        mensagem[i] = toupper((unsigned char)mensagem[i]);
+    }
+}
+
+int main() {
+    char mensagem[TAMANHO];
+
+    int entrada = open("/tmp/fila_entrada", O_RDONLY);
+    int saida = open("/tmp/fila_saida", O_WRONLY);
+
+    if (entrada < 0 || saida < 0) {
+        perror("Erro ao abrir as filas");
+        exit(1);
+    }
+
+    while (1) {
+        read(entrada, mensagem, TAMANHO);
+        converter_para_maiusculas(mensagem);
+        write(saida, mensagem, strlen(mensagem));
+    }
+
+    close(entrada);
+    close(saida);
+    return 0;
+}
+
+
+cliente.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+
+#define TAMANHO 256
+
+int main() {
+    char mensagem[TAMANHO];
+
+    int entrada = open("/tmp/fila_entrada", O_WRONLY);
+    int saida = open("/tmp/fila_saida", O_RDONLY);
+
+    if (entrada < 0 || saida < 0) {
+        perror("Erro ao abrir as filas");
+        exit(1);
+    }
+
+    while (1) {
+        printf("Digite uma mensagem: ");
+        fgets(mensagem, TAMANHO, stdin);
+
+        write(entrada, mensagem, strlen(mensagem));
+        read(saida, mensagem, TAMANHO);
+
+        printf("Resposta do servidor: %s\n", mensagem);
+    }
+
+    close(entrada);
+    close(saida);
+    return 0;
+}
+
+Compilação e execução (terminal do servidor)
+$ mkfifo /tmp/fila_entrada
+$ mkfifo /tmp/fila_saida
+$ gcc servidor.c -o servidor
+$ ./servidor &
+
+Compilação e execução (terminal do cliente)
+$ gcc cliente.c -o cliente
+$ ./cliente
+
+Resultado (terminal do cliente)
+Digite uma mensagem: teste
+Resposta do servidor: TESTE
+
+Conclusão
+Neste exercício, foram utilizadas duas FIFOs para implementar uma comunicação entre processo cliente e servidor. 
+O servidor é executado em background, onde ele aguarda mensagens recebidas pela fila_entrada, converte o conteúdo para letras maiúsculas e envia o resultado para a fila_saida.
+O cliente, por sua vez, envia uma string digitada pelo usuário e imprime a resposta processada pelo servidor. 
+A comunicação funciona corretamente desde que o servidor seja iniciado antes dos clientes, garantindo que as FIFOs estejam abertas nos dois extremos.
