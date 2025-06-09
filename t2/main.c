@@ -19,6 +19,7 @@ typedef struct BasePage BasePage;
 
 // Funções do módulo
 void criaProcessos(void);
+void pausaProcessos(void);
 void criaArquivosTexto(void);
 int* geraVetorBaguncado(void);
 char geraReadWrite(void);
@@ -26,6 +27,7 @@ void gmv(void);
 
 // Variáveis globais do módulo
 int segmento_memoria;
+int pids[4];
 pthread_t gmv_thread;
 
 int main(void)
@@ -40,13 +42,19 @@ int main(void)
     segmento_memoria = shmget(IPC_PRIVATE, sizeof(BasePage)*QTD_PAGINAS*QTD_PROCESSOS, IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
     if (segmento_memoria == -1){ fprintf(stderr, "(!) Erro na criação de memória compartilhada.\n"); exit(1); }
 
-    // Cria 4 processos
-    criaProcessos();
+    // Cria 4 processos e os interrompe logo em seguida
+    criaProcessos(); pausaProcessos();
 
     // Executa uma thread que será responsável por gerenciar a memória
     if( pthread_create(&gmv_thread, NULL, gmv, NULL) != 0 ){ fprintf(stderr, "(!) Erro na criação da thread GMV.\n"); exit(1); } 
 
     // Escalonamento Round-Robin
+    forProcessos(i)
+    {
+        kill(pids[i], SIGCONT);
+        sleep(1);
+        kill(pids[i], SIGSTOP);
+    }
 
     // Limpa o que for necessário
 
@@ -59,11 +67,10 @@ void criaProcessos(void)
         printf("> Iniciando criaçao dos 4 processos\n");
     #endif
 
-    int pid[4];
     forProcessos(i)
     {
-        pid[i] = fork();
-        if (pid[i] == 0) // Filho
+        pids[i] = fork();
+        if (pids[i] == 0) // Filho
         {
             char executavel[20], nome_programa[20];
             sprintf(executavel, "./processos/processo%d", i+1);
@@ -77,6 +84,11 @@ void criaProcessos(void)
     #if MODO_TESTE
         printf("> Todos os 4 processos foram criados\n");
     #endif
+}
+
+void pausaProcessos(void)
+{
+    forProcessos(i){ kill(pids[i], SIGSTOP); }
 }
 
 void criaArquivosTexto(void)
