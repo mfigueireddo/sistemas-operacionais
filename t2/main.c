@@ -23,7 +23,7 @@ void pausaProcessos(void);
 void criaArquivosTexto(void);
 int* geraVetorBaguncado(void);
 char geraReadWrite(void);
-void gmv(void);
+void* gmv(void *arg);
 
 // Variáveis globais do módulo
 int segmento_memoria;
@@ -151,7 +151,7 @@ char geraReadWrite(void)
     return (aleatorio % 2 == 0) ? 'W' : 'R';
 }
 
-void gmv(void)
+void* gmv(void *arg)
 {
     #if MODO_TESTE
         printf("> Gerenciador de Memória Virtual iniciado \n");
