@@ -5,7 +5,10 @@
 
 #include "utils.h"
 
+#define forProcessos(i) for(int i=0; i<4; i++)
+
 void criaProcessos(void);
+void criaArquivosTexto(void);
 
 int main(void)
 {
@@ -13,6 +16,7 @@ int main(void)
     criaProcessos();
 
     // Cria os arquivos com as ordens de acesso de cada processo
+    // criaArquivosTexto();
 
     // Cria a memória que será compartilhada pelos processos
 
@@ -27,8 +31,12 @@ int main(void)
 
 void criaProcessos(void)
 {
+    #if MODO_TESTE
+        printf("Iniciando criaçao dos 4 processos\n");
+    #endif
+
     int pid[4];
-    for(int i=0; i<4; i++)
+    forProcessos(i)
     {
         pid[i] = fork();
         if (pid[i] == 0) // Filho
@@ -46,3 +54,33 @@ void criaProcessos(void)
         printf("Todos os 4 processos foram criados\n");
     #endif
 }
+
+/*
+void criaArquivosTexto(void)
+{
+    #if MODO_TESTE
+        printf("Iniciando criaçao dos 4 arquivos texto\n");
+    #endif
+
+    // Abre os arquivos no modo escrita
+    FILE *arquivos[4]; char caminho[100];
+    forProcessos(i)
+    {
+        sprintf(caminho, "./arquivos_txt/ordem_processo%d.txt", i+1);
+        arquivos[i] = abreArquivoTexto(caminho, 'w');
+    }
+
+    // Escreve nos arquivos
+    forProcessos(i)
+    {
+        fprintf(arquivos[i], "Teste");
+    }
+
+    // Fecha os arquivos
+    forProcessos(i){ fechaArquivoTexto(arquivos[i]); }
+
+    #if MODO_TESTE
+        printf("Todos os 4 arquivos texto foram criados\n");
+    #endif
+}
+*/
