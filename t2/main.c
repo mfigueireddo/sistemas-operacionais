@@ -6,6 +6,7 @@
 
 #include <pthread.h> // pthread()
 #include <time.h> // time()
+#include <signal.h> // SIGSTOP, SIGCONT
 
 #include <sys/shm.h> // shmget(), shmctl()
 #include <sys/ipc.h> // IPCs
@@ -41,13 +42,13 @@ int main(void)
 
     // Cria a memória que será compartilhada pelos processos
     segmento_memoria = shmget(IPC_PRIVATE, sizeof(BasePage)*QTD_PAGINAS*QTD_PROCESSOS, IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
-    if (segmento_memoria == -1){ fprintf(stderr, "(!) Erro na criação de memória compartilhada.\n"); exit(1); }
+    if (segmento_memoria == -1){ fprintf(stderr, "(!) Erro na criação de memória compartilhada\n"); exit(1); }
 
     // Cria 4 processos e os interrompe logo em seguida
     criaProcessos(); pausaProcessos();
 
     // Executa uma thread que será responsável por gerenciar a memória
-    if( pthread_create(&gmv_thread, NULL, gmv, NULL) != 0 ){ fprintf(stderr, "(!) Erro na criação da thread GMV.\n"); exit(1); } 
+    if( pthread_create(&gmv_thread, NULL, gmv, NULL) != 0 ){ fprintf(stderr, "(!) Erro na criação da thread GMV\n"); exit(1); } 
 
     // Escalonamento Round-Robin
     forProcessos(i)
@@ -69,19 +70,19 @@ int main(void)
 void criaProcessos(void)
 {
     #if MODO_TESTE
-        printf("> Iniciando criaçao dos 4 processos.\n");
+        printf("\n> Iniciando criação dos 4 processos\n");
     #endif
 
     forProcessos(i)
     {
         #if MODO_TESTE
-            printf("> Criando o processo %d.\n", i+1);
+            printf("> Criando o processo %d\n", i+1);
         #endif
 
         pids[i] = fork();
         if (pids[i] == 0) // Filho
         {
-            char executavel[20], nome_programa[20];
+            char executavel[100], nome_programa[100];
             sprintf(executavel, "./processos/processo%d", i+1);
             sprintf(nome_programa, "processo%d", i+1);
             execlp(executavel, nome_programa, segmento_memoria, NULL);
@@ -91,43 +92,43 @@ void criaProcessos(void)
         sleep(1);
 
         #if MODO_TESTE
-            printf("> Processo %d criado.\n", i+1);
+            printf("> Processo %d criado\n", i+1);
         #endif
     }
 
     #if MODO_TESTE
-        printf("> Todos os 4 processos foram criados.\n");
+        printf("> Todos os 4 processos foram criados\n");
     #endif
 }
 
 void pausaProcessos(void)
 {
     #if MODO_TESTE
-        printf("> Ordenando a pausa dos 4 processos.\n");
+        printf("\n> Ordenando a pausa dos 4 processos\n");
     #endif
 
     forProcessos(i)
     {
         #if MODO_TESTE
-            printf("> Pausando o processo %d.\n", i+1);
+            printf("> Pausando o processo %d\n", i+1);
         #endif 
 
         kill(pids[i], SIGSTOP); 
 
         #if MODO_TESTE
-            printf("> Processo %d pausado.\n", i+1);
+            printf("> Processo %d pausado\n", i+1);
         #endif 
     }
 
     #if MODO_TESTE
-        printf("> Todos os 4 processos foram pausados.\n");
+        printf("> Todos os 4 processos foram pausados\n");
     #endif
 }
 
 void criaArquivosTexto(void)
 {
     #if MODO_TESTE
-        printf("> Iniciando criaçao dos 4 arquivos texto.\n");
+        printf("\n> Iniciando criaçao dos 4 arquivos texto\n");
     #endif
 
     // Abre os arquivos no modo escrita
@@ -158,7 +159,7 @@ void criaArquivosTexto(void)
     free(nums);
 
     #if MODO_TESTE
-        printf("> Todos os 4 arquivos texto foram criados.\n");
+        printf("> Todos os 4 arquivos texto foram criados\n");
     #endif
 }
 
@@ -190,38 +191,38 @@ char geraReadWrite(void)
 void* gmv(void *arg)
 {
     #if MODO_TESTE
-        printf("> Gerenciador de Memória Virtual iniciado.\n");
+        printf("\n> Gerenciador de Memória Virtual iniciado\n");
     #endif
 
     #if MODO_TESTE
-        printf("> Gerenciador de Memória Virtual encerrado.\n");
+        printf("> Gerenciador de Memória Virtual encerrado\n");
     #endif
 }
 
 void aguardaEncerramento(void)
 {
     #if MODO_TESTE
-        printf("> Aguardando o encerramento da thread.\n");
+        printf("\n> Aguardando o encerramento da thread\n");
     #endif
 
     // Aguarda o encerreamento da thread GMV
     pthread_join(gmv_thread, NULL);
 
     #if MODO_TESTE
-        printf("> Thread encerrada.\n");
+        printf("> Thread encerrada\n");
     #endif
 
     // Aguarda o encerramento dos processos
     forProcessos(i)
     { 
         #if MODO_TESTE
-            printf("> Aguardando o encerramento do processo %d.\n", i+1);
+            printf("> Aguardando o encerramento do processo %d\n", i+1);
         #endif
 
         waitpid(pids[i], NULL, 0); 
 
         #if MODO_TESTE
-            printf("> Processo %d encerrado.\n", i+1);
+            printf("> Processo %d encerrado\n", i+1);
         #endif
     }
 }
@@ -229,13 +230,13 @@ void aguardaEncerramento(void)
 void limpa_memoria(void)
 {
     #if MODO_TESTE
-        printf("> Iniciando a limpeza da memória.\n");
+        printf("\n> Iniciando a limpeza da memória\n");
     #endif
 
     // Remoção da área de memória compartilhada
     shmctl(segmento_memoria, IPC_RMID, NULL);
 
     #if MODO_TESTE
-        printf("> Memória limpa.\n");
+        printf("> Memória limpa\n");
     #endif
 }
