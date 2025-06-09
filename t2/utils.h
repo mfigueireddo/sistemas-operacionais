@@ -6,8 +6,8 @@
     #endif
 
     // Funções de utils.c
-    FILE* abreArquivoTexto(char* nome, char modo);
-    void fechaArquivoTexto(FILE* arquivos);
+    FILE* abreArquivoTexto(char* caminho, char modo);
+    void fechaArquivoTexto(FILE* arquivo);
 
     // Estrutura básica
 
