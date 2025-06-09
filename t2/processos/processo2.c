@@ -1,27 +1,36 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <sys/shm.h> // shmat()
+#include <unistd.h> // sleep()
 
 #include "../utils.h"
-
-// Variáveis globais do módulo
-int segmento_memoria;
 
 int main(int argc, char *argv[])
 {
     #if MODO_TESTE
-        printf("\n<> Processo 2 criado\n");
+        printf("<> Processo 2 criado\n");
     #endif
-    
+
     // Faz a ligação com o segmento de memória
-    segmento_memoria = atoi(argv[1]);
-    int *memoria = (int*)shmat(segmento_memoria, NULL, 0);
-    if (memoria == (void*)-1){ fprintf(stderr, "(!) Erro ao estabelecer ligação entre o processo 2 e o segmento de memória compartilhada\n"); exit(1); }
+    int *memoria = getMemoria(argv[1]);
+
+    FILE* arquivo;
+    arquivo = abreArquivoTexto("arquivos_txt/ordem_processo2.txt", 'r');
+
+    sleep(6);
+    char buffer[10];
+    while( fgets(buffer, sizeof(buffer), arquivo) != NULL )
+    {
+        printf("<> Processo 2 - %s", buffer);
+        sleep(2);
+    }
 
     #if MODO_TESTE
         printf("\n<> Processo 2 encerrado\n");
     #endif
+
+    // Limpa a memória
+    fechaArquivoTexto(arquivo);
 
     return 0;
 }

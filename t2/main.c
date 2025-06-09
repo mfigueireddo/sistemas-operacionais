@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <unistd.h> // fork(), execlp(), kill()
+#include <unistd.h> // fork(), execlp(), kill(), sleep()
 #include <sys/wait.h> // wait()
 
 #include <pthread.h> // pthread()
@@ -25,12 +25,13 @@ int* geraVetorBaguncado(void);
 char geraReadWrite(void);
 void* gmv(void *arg);
 void aguardaEncerramento(void);
-void limpa_memoria(void);
+void limpaMemoria(void);
 
 // Variáveis globais do módulo
 int segmento_memoria;
 int pids[4];
 pthread_t gmv_thread;
+int flag_loop = 1;
 
 int main(void)
 {
@@ -41,7 +42,7 @@ int main(void)
     criaArquivosTexto();
 
     // Cria a memória que será compartilhada pelos processos
-    segmento_memoria = shmget(IPC_PRIVATE, sizeof(BasePage)*QTD_PAGINAS*QTD_PROCESSOS, IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
+    segmento_memoria = shmget(IPC_PRIVATE, sizeof(BasePage)*MAX_PAGINAS, IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
     if (segmento_memoria == -1){ fprintf(stderr, "(!) Erro na criação de memória compartilhada\n"); exit(1); }
 
     // Cria 4 processos e os interrompe logo em seguida
@@ -50,19 +51,28 @@ int main(void)
     // Executa uma thread que será responsável por gerenciar a memória
     if( pthread_create(&gmv_thread, NULL, gmv, NULL) != 0 ){ fprintf(stderr, "(!) Erro na criação da thread GMV\n"); exit(1); } 
 
-    // Escalonamento Round-Robin
-    forProcessos(i)
+    sleep(1);
+
+    while(flag_loop)
     {
-        kill(pids[i], SIGCONT);
-        sleep(1);
-        kill(pids[i], SIGSTOP);
+        // Escalonamento Round-Robin
+        forProcessos(i)
+        {
+            #if MODO_TESTE
+                printf("\n> Escalonamento: vez do processo %d\n", i+1);
+            #endif
+
+            kill(pids[i], SIGCONT);
+            sleep(1);
+            kill(pids[i], SIGSTOP);
+        }
     }
 
     // Aguarda o encerramento da thread e dos processos
     aguardaEncerramento();
 
     // Libera a memória utilizada dinamicamente pelo programa
-    limpa_memoria();
+    limpaMemoria();
 
     return 0;
 }
@@ -82,18 +92,15 @@ void criaProcessos(void)
         pids[i] = fork();
         if (pids[i] == 0) // Filho
         {
-            char executavel[100], nome_programa[100];
+            char executavel[100], nome_programa[100], str_segmento_memoria[100];
             sprintf(executavel, "./processos/processo%d", i+1);
             sprintf(nome_programa, "processo%d", i+1);
-            execlp(executavel, nome_programa, segmento_memoria, NULL);
+            sprintf(str_segmento_memoria, "%d", segmento_memoria);
+            execlp(executavel, nome_programa, str_segmento_memoria, NULL);
             exit(0);
         }
 
         sleep(1);
-
-        #if MODO_TESTE
-            printf("> Processo %d criado\n", i+1);
-        #endif
     }
 
     #if MODO_TESTE
@@ -178,7 +185,6 @@ int* geraVetorBaguncado(void)
         nums[new_pos] = nums[old_pos];
         nums[old_pos] = temp;
     }
-
     return nums;
 }
 
@@ -227,7 +233,7 @@ void aguardaEncerramento(void)
     }
 }
 
-void limpa_memoria(void)
+void limpaMemoria(void)
 {
     #if MODO_TESTE
         printf("\n> Iniciando a limpeza da memória\n");
