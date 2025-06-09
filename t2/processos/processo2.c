@@ -5,6 +5,7 @@
 
 #include "../utils.h"
 
+// Variáveis globais do módulo
 int segmento_memoria;
 
 int main(int argc, char *argv[])

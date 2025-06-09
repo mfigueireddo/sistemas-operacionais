@@ -12,11 +12,16 @@
 
 #include "utils.h"
 
+// Estrutura
+typedef struct BasePage BasePage;
+
+// Funções do módulo
 void criaProcessos(void);
 void criaArquivosTexto(void);
 int* geraVetorBaguncado(void);
 char geraReadWrite(void);
 
+// Variáveis globais do módulo
 int segmento_memoria;
 
 int main(void)
@@ -28,7 +33,7 @@ int main(void)
     criaArquivosTexto();
 
     // Cria a memória que será compartilhada pelos processos
-    segmento_memoria = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
+    segmento_memoria = shmget(IPC_PRIVATE, sizeof(BasePage)*QTD_PAGINAS*QTD_PROCESSOS, IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
     if (segmento_memoria == -1){ fprintf(stderr, "(!) Erro na criação de memória compartilhada.\n"); exit(1); }
 
     // Cria 4 processos
