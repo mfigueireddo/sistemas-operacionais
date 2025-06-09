@@ -5,7 +5,7 @@
 int main(void)
 {
     #if MODO_TESTE
-        printf("Processo 4 criado\n");
+        printf("! Processo 4 criado\n");
     #endif
     
     return 0;

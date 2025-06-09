@@ -16,7 +16,7 @@ int main(void)
     criaProcessos();
 
     // Cria os arquivos com as ordens de acesso de cada processo
-    // criaArquivosTexto();
+    criaArquivosTexto();
 
     // Cria a memória que será compartilhada pelos processos
 
@@ -32,7 +32,7 @@ int main(void)
 void criaProcessos(void)
 {
     #if MODO_TESTE
-        printf("Iniciando criaçao dos 4 processos\n");
+        printf("> Iniciando criaçao dos 4 processos\n");
     #endif
 
     int pid[4];
@@ -51,15 +51,14 @@ void criaProcessos(void)
     }
 
     #if MODO_TESTE
-        printf("Todos os 4 processos foram criados\n");
+        printf("> Todos os 4 processos foram criados\n");
     #endif
 }
 
-/*
 void criaArquivosTexto(void)
 {
     #if MODO_TESTE
-        printf("Iniciando criaçao dos 4 arquivos texto\n");
+        printf("> Iniciando criaçao dos 4 arquivos texto\n");
     #endif
 
     // Abre os arquivos no modo escrita
@@ -80,7 +79,6 @@ void criaArquivosTexto(void)
     forProcessos(i){ fechaArquivoTexto(arquivos[i]); }
 
     #if MODO_TESTE
-        printf("Todos os 4 arquivos texto foram criados\n");
+        printf("> Todos os 4 arquivos texto foram criados\n");
     #endif
 }
-*/

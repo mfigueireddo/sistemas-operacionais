@@ -1,0 +1,5 @@
+gcc main.c utils.c -o main -DMODO_TESTE=1
+gcc processos/processo1.c -o processos/processo1 -DMODO_TESTE=1
+gcc processos/processo2.c -o processos/processo2 -DMODO_TESTE=1
+gcc processos/processo3.c -o processos/processo3 -DMODO_TESTE=1
+gcc processos/processo4.c -o processos/processo4 -DMODO_TESTE=1
