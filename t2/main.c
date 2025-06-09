@@ -5,12 +5,12 @@
 
 #include "utils.h"
 
-void cria_processos(void);
+void criaProcessos(void);
 
 int main(void)
 {
     // Cria 4 processos
-    cria_processos();
+    criaProcessos();
 
     // Cria os arquivos com as ordens de acesso de cada processo
 
@@ -25,7 +25,7 @@ int main(void)
     return 0;
 }
 
-void cria_processos(void)
+void criaProcessos(void)
 {
     int pid[4];
     for(int i=0; i<4; i++)
@@ -34,12 +34,15 @@ void cria_processos(void)
         if (pid[i] == 0) // Filho
         {
             char executavel[20], nome_programa[20];
-            sprintf(executavel, "./processo%d", i+1);
+            sprintf(executavel, "./processos/processo%d", i+1);
             sprintf(nome_programa, "processo%d", i+1);
             execl(executavel, nome_programa, NULL);
             exit(0);
         }
+        sleep(1); // Espera os processos iniciarem
     }
 
-    for(int i=0; i<4; i++){ wait(NULL); } // Apenas para testar se os processos foram criados
+    #if MODO_TESTE
+        printf("Todos os 4 processos foram criados\n");
+    #endif
 }

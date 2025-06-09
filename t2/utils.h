@@ -1,7 +1,14 @@
 #ifndef UTILS
-
 #define UTILS
 
-// Estrutura básica
+    #ifndef MODO_TESTE
+    #define MODO_TESTE 0
+    #endif
+
+    // Funções de utils.c
+    FILE* abreArquivoTexto(char* nome, char modo);
+    void fechaArquivoTexto(FILE* arquivos);
+
+    // Estrutura básica
 
 #endif
