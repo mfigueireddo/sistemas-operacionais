@@ -1,16 +1,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <unistd.h> // fork()
-
-#include <time.h> // time()
-
+#include <unistd.h> // fork(), execlp(), kill()
 #include <sys/wait.h> // wait()
-#include <sys/shm.h> // shmget()
-#include <sys/ipc.h> // IPCs
-#include <sys/stat.h> // S_IUSR, S_IWUSR
 
 #include <pthread.h> // pthread()
+#include <time.h> // time()
+
+#include <sys/shm.h> // shmget(), shmctl()
+#include <sys/ipc.h> // IPCs
+#include <sys/stat.h> // S_IUSR, S_IWUSR
 
 #include "utils.h"
 
@@ -24,6 +23,8 @@ void criaArquivosTexto(void);
 int* geraVetorBaguncado(void);
 char geraReadWrite(void);
 void* gmv(void *arg);
+void aguardaEncerramento(void);
+void limpa_memoria(void);
 
 // Variáveis globais do módulo
 int segmento_memoria;
@@ -56,7 +57,11 @@ int main(void)
         kill(pids[i], SIGSTOP);
     }
 
-    // Limpa o que for necessário
+    // Aguarda o encerramento da thread e dos processos
+    aguardaEncerramento();
+
+    // Libera a memória utilizada dinamicamente pelo programa
+    limpa_memoria();
 
     return 0;
 }
@@ -64,11 +69,15 @@ int main(void)
 void criaProcessos(void)
 {
     #if MODO_TESTE
-        printf("> Iniciando criaçao dos 4 processos\n");
+        printf("> Iniciando criaçao dos 4 processos.\n");
     #endif
 
     forProcessos(i)
     {
+        #if MODO_TESTE
+            printf("> Criando o processo %d.\n", i+1);
+        #endif
+
         pids[i] = fork();
         if (pids[i] == 0) // Filho
         {
@@ -78,23 +87,47 @@ void criaProcessos(void)
             execlp(executavel, nome_programa, segmento_memoria, NULL);
             exit(0);
         }
-        sleep(1); // Espera os processos iniciarem
+
+        sleep(1);
+
+        #if MODO_TESTE
+            printf("> Processo %d criado.\n", i+1);
+        #endif
     }
 
     #if MODO_TESTE
-        printf("> Todos os 4 processos foram criados\n");
+        printf("> Todos os 4 processos foram criados.\n");
     #endif
 }
 
 void pausaProcessos(void)
 {
-    forProcessos(i){ kill(pids[i], SIGSTOP); }
+    #if MODO_TESTE
+        printf("> Ordenando a pausa dos 4 processos.\n");
+    #endif
+
+    forProcessos(i)
+    {
+        #if MODO_TESTE
+            printf("> Pausando o processo %d.\n", i+1);
+        #endif 
+
+        kill(pids[i], SIGSTOP); 
+
+        #if MODO_TESTE
+            printf("> Processo %d pausado.\n", i+1);
+        #endif 
+    }
+
+    #if MODO_TESTE
+        printf("> Todos os 4 processos foram pausados.\n");
+    #endif
 }
 
 void criaArquivosTexto(void)
 {
     #if MODO_TESTE
-        printf("> Iniciando criaçao dos 4 arquivos texto\n");
+        printf("> Iniciando criaçao dos 4 arquivos texto.\n");
     #endif
 
     // Abre os arquivos no modo escrita
@@ -121,8 +154,11 @@ void criaArquivosTexto(void)
     // Fecha os arquivos
     forProcessos(i){ fechaArquivoTexto(arquivos[i]); }
 
+    // Libera a memória alocada para nums
+    free(nums);
+
     #if MODO_TESTE
-        printf("> Todos os 4 arquivos texto foram criados\n");
+        printf("> Todos os 4 arquivos texto foram criados.\n");
     #endif
 }
 
@@ -154,10 +190,52 @@ char geraReadWrite(void)
 void* gmv(void *arg)
 {
     #if MODO_TESTE
-        printf("> Gerenciador de Memória Virtual iniciado \n");
+        printf("> Gerenciador de Memória Virtual iniciado.\n");
     #endif
 
     #if MODO_TESTE
-        printf("> Gerenciador de Memória Virtual encerrado \n");
+        printf("> Gerenciador de Memória Virtual encerrado.\n");
+    #endif
+}
+
+void aguardaEncerramento(void)
+{
+    #if MODO_TESTE
+        printf("> Aguardando o encerramento da thread.\n");
+    #endif
+
+    // Aguarda o encerreamento da thread GMV
+    pthread_join(gmv_thread, NULL);
+
+    #if MODO_TESTE
+        printf("> Thread encerrada.\n");
+    #endif
+
+    // Aguarda o encerramento dos processos
+    forProcessos(i)
+    { 
+        #if MODO_TESTE
+            printf("> Aguardando o encerramento do processo %d.\n", i+1);
+        #endif
+
+        waitpid(pids[i], NULL, 0); 
+
+        #if MODO_TESTE
+            printf("> Processo %d encerrado.\n", i+1);
+        #endif
+    }
+}
+
+void limpa_memoria(void)
+{
+    #if MODO_TESTE
+        printf("> Iniciando a limpeza da memória.\n");
+    #endif
+
+    // Remoção da área de memória compartilhada
+    shmctl(segmento_memoria, IPC_RMID, NULL);
+
+    #if MODO_TESTE
+        printf("> Memória limpa.\n");
     #endif
 }
