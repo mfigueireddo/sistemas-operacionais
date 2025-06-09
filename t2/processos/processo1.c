@@ -5,6 +5,8 @@
 
 #include "../utils.h"
 
+typedef struct BasePage BasePage;
+
 int main(int argc, char *argv[])
 {
     #if MODO_TESTE
@@ -12,25 +14,30 @@ int main(int argc, char *argv[])
     #endif
 
     // Faz a ligação com o segmento de memória
-    int *memoria = getMemoria(argv[1]);
+    BasePage *memoria = getMemoria(argv[1]);
 
     FILE* arquivo;
     arquivo = abreArquivoTexto("arquivos_txt/ordem_processo1.txt", 'r');
 
     sleep(6);
-    char buffer[10];
+    char buffer[10]; int idx_livre;
+    
     while( fgets(buffer, sizeof(buffer), arquivo) != NULL )
     {
         printf("<> Processo 1 - %s", buffer);
+        
+        // Procura o primeiro endereço de memória vago
+        idx_livre = procuraEspacoLivre();
+
         sleep(2);
     }
+
+    // Limpa a memória
+    fechaArquivoTexto(arquivo);
 
     #if MODO_TESTE
         printf("\n<> Processo 1 encerrado\n");
     #endif
-
-    // Limpa a memória
-    fechaArquivoTexto(arquivo);
 
     return 0;
 }

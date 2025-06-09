@@ -5,6 +5,8 @@
 
 #include "../utils.h"
 
+typedef struct BasePage BasePage;
+
 int main(int argc, char *argv[])
 {
     #if MODO_TESTE
@@ -25,12 +27,12 @@ int main(int argc, char *argv[])
         sleep(2);
     }
 
+    // Limpa a memória
+    fechaArquivoTexto(arquivo);
+
     #if MODO_TESTE
         printf("\n<> Processo 4 encerrado\n");
     #endif
-
-    // Limpa a memória
-    fechaArquivoTexto(arquivo);
 
     return 0;
 }

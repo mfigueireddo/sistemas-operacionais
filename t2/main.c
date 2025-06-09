@@ -18,9 +18,12 @@
 typedef struct BasePage BasePage;
 
 // Funções do módulo
+void criaArquivosTexto(void);
+void criaMemoriaCompartilhada(void);
+void marcaMemoriaCompartilhada(void);
 void criaProcessos(void);
 void pausaProcessos(void);
-void criaArquivosTexto(void);
+void criaThreadGMV(void);
 int* geraVetorBaguncado(void);
 char geraReadWrite(void);
 void* gmv(void *arg);
@@ -41,15 +44,14 @@ int main(void)
     // Cria os arquivos com as ordens de acesso de cada processo
     criaArquivosTexto();
 
-    // Cria a memória que será compartilhada pelos processos
-    segmento_memoria = shmget(IPC_PRIVATE, sizeof(BasePage)*MAX_PAGINAS, IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
-    if (segmento_memoria == -1){ fprintf(stderr, "(!) Erro na criação de memória compartilhada\n"); exit(1); }
+    // Cria a memória que será compartilhada pelos processos e marca todos os espaços com NULL
+    criaMemoriaCompartilhada(); marcaMemoriaCompartilhada();
 
     // Cria 4 processos e os interrompe logo em seguida
     criaProcessos(); pausaProcessos();
 
     // Executa uma thread que será responsável por gerenciar a memória
-    if( pthread_create(&gmv_thread, NULL, gmv, NULL) != 0 ){ fprintf(stderr, "(!) Erro na criação da thread GMV\n"); exit(1); } 
+    criaThreadGMV();
 
     sleep(1);
 
@@ -62,9 +64,7 @@ int main(void)
                 printf("\n> Escalonamento: vez do processo %d\n", i+1);
             #endif
 
-            kill(pids[i], SIGCONT);
-            sleep(1);
-            kill(pids[i], SIGSTOP);
+            escalonamento(pids[i]);
         }
     }
 
@@ -75,6 +75,60 @@ int main(void)
     limpaMemoria();
 
     return 0;
+}
+
+void criaArquivosTexto(void)
+{
+    #if MODO_TESTE
+        printf("\n> Iniciando criaçao dos 4 arquivos texto\n");
+    #endif
+
+    // Abre os arquivos no modo escrita
+    FILE *arquivos[4]; char caminho[100];
+    forProcessos(i)
+    {
+        sprintf(caminho, "./arquivos_txt/ordem_processo%d.txt", i+1);
+        arquivos[i] = abreArquivoTexto(caminho, 'w');
+    }
+
+    // Monta os arquivos de cada processo
+    int *nums, modo;
+    forProcessos(i)
+    {
+        nums = geraVetorBaguncado(); // Gera um vetor de números
+
+        forPaginas(j)
+        {
+            modo = geraReadWrite(); // Gera 'W' ou 'R'
+            fprintf(arquivos[i], "%d %c\n", nums[j], modo);
+        }
+    }
+
+    // Fecha os arquivos
+    forProcessos(i){ fechaArquivoTexto(arquivos[i]); }
+
+    // Libera a memória alocada para nums
+    free(nums);
+
+    #if MODO_TESTE
+        printf("> Todos os 4 arquivos texto foram criados\n");
+    #endif
+}
+
+void criaMemoriaCompartilhada(void)
+{
+    segmento_memoria = shmget(IPC_PRIVATE, sizeof(BasePage)*MAX_PAGINAS, IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
+    if (segmento_memoria == -1){ fprintf(stderr, "(!) Erro na criação de memória compartilhada\n"); exit(1); }
+}
+
+void marcaMemoriaCompartilhada(void)
+{
+    BasePage* memoria = getMemoria(segmento_memoria);
+
+    forMemoriaCompartilhada(i)
+    {
+        memoria[i] = pagina_vazia;
+    }
 }
 
 void criaProcessos(void)
@@ -132,42 +186,9 @@ void pausaProcessos(void)
     #endif
 }
 
-void criaArquivosTexto(void)
+void criaThreadGMV(void)
 {
-    #if MODO_TESTE
-        printf("\n> Iniciando criaçao dos 4 arquivos texto\n");
-    #endif
-
-    // Abre os arquivos no modo escrita
-    FILE *arquivos[4]; char caminho[100];
-    forProcessos(i)
-    {
-        sprintf(caminho, "./arquivos_txt/ordem_processo%d.txt", i+1);
-        arquivos[i] = abreArquivoTexto(caminho, 'w');
-    }
-
-    // Monta os arquivos de cada processo
-    int *nums, modo;
-    forProcessos(i)
-    {
-        nums = geraVetorBaguncado(); // Gera um vetor de números
-
-        forPaginas(j)
-        {
-            modo = geraReadWrite(); // Gera 'W' ou 'R'
-            fprintf(arquivos[i], "%d %c\n", nums[j], modo);
-        }
-    }
-
-    // Fecha os arquivos
-    forProcessos(i){ fechaArquivoTexto(arquivos[i]); }
-
-    // Libera a memória alocada para nums
-    free(nums);
-
-    #if MODO_TESTE
-        printf("> Todos os 4 arquivos texto foram criados\n");
-    #endif
+    if( pthread_create(&gmv_thread, NULL, gmv, NULL) != 0 ){ fprintf(stderr, "(!) Erro na criação da thread GMV\n"); exit(1); } 
 }
 
 int* geraVetorBaguncado(void)
@@ -203,6 +224,13 @@ void* gmv(void *arg)
     #if MODO_TESTE
         printf("> Gerenciador de Memória Virtual encerrado\n");
     #endif
+}
+
+void escalonamento(int pid)
+{
+    kill(pid, SIGCONT);
+    sleep(1);
+    kill(pid, SIGSTOP);
 }
 
 void aguardaEncerramento(void)
