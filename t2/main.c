@@ -24,15 +24,15 @@ int main(void)
     // Pega a semente do rand()
     srand(time(NULL));
 
-    // Cria 4 processos
-    criaProcessos();
-
     // Cria os arquivos com as ordens de acesso de cada processo
     criaArquivosTexto();
 
     // Cria a memória que será compartilhada pelos processos
-    segmento_memoria = shmget(IPC_PRIVATE, (sizeof(int)*QTD_PAGINAS)*QTD_PROCESSOS, IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
-    if (segmento_memoria == -1){ fprintf(stderr, "Erro na criação de memória compartilhada.\n"); exit(1); }
+    segmento_memoria = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
+    if (segmento_memoria == -1){ fprintf(stderr, "(!) Erro na criação de memória compartilhada.\n"); exit(1); }
+
+    // Cria 4 processos
+    criaProcessos();
 
     // Executa uma thread que será responsável por gerenciar a memória
 
@@ -58,7 +58,7 @@ void criaProcessos(void)
             char executavel[20], nome_programa[20];
             sprintf(executavel, "./processos/processo%d", i+1);
             sprintf(nome_programa, "processo%d", i+1);
-            execl(executavel, nome_programa, NULL);
+            execlp(executavel, nome_programa, segmento_memoria, NULL);
             exit(0);
         }
         sleep(1); // Espera os processos iniciarem
