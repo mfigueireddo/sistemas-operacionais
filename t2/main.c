@@ -10,6 +10,8 @@
 #include <sys/ipc.h> // IPCs
 #include <sys/stat.h> // S_IUSR, S_IWUSR
 
+#include <pthread.h> // pthread()
+
 #include "utils.h"
 
 // Estrutura
@@ -20,9 +22,11 @@ void criaProcessos(void);
 void criaArquivosTexto(void);
 int* geraVetorBaguncado(void);
 char geraReadWrite(void);
+void gmv(void);
 
 // Variáveis globais do módulo
 int segmento_memoria;
+pthread_t gmv_thread;
 
 int main(void)
 {
@@ -40,6 +44,7 @@ int main(void)
     criaProcessos();
 
     // Executa uma thread que será responsável por gerenciar a memória
+    if( pthread_create(&gmv_thread, NULL, gmv, NULL) != 0 ){ fprintf(stderr, "(!) Erro na criação da thread GMV.\n"); exit(1); } 
 
     // Escalonamento Round-Robin
 
@@ -132,4 +137,15 @@ char geraReadWrite(void)
 {
     int aleatorio = rand() % 2;
     return (aleatorio % 2 == 0) ? 'W' : 'R';
+}
+
+void gmv(void)
+{
+    #if MODO_TESTE
+        printf("> Gerenciador de Memória Virtual iniciado \n");
+    #endif
+
+    #if MODO_TESTE
+        printf("> Gerenciador de Memória Virtual encerrado \n");
+    #endif
 }
