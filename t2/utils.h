@@ -12,12 +12,14 @@
     #define MAX_PAGINAS 16
     #define forProcessos(i) for(int i=0; i<QTD_PROCESSOS; i++)
     #define forPaginas(i) for(int i=0; i<QTD_PAGINAS; i++)
-    #define forMemoriaCompartilhada(i) for(int i=0; i<16; i++)
+    #define forMemoria(i) for(int i=0; i<16; i++)
+    #define READWRITEMODE O_RDWR 
+    #define READMODE O_RDONLY
+    #define WRITEMODE O_WRONLY
 
     // Funções de utils.c
     FILE* abreArquivoTexto(char* caminho, char modo);
     void fechaArquivoTexto(FILE* arquivo);
-    BasePage* getMemoria(char *segmento_memoria);
 
     // Estrutura básica de uma página
     struct BasePage
@@ -28,8 +30,5 @@
         int uso;
         void* extra;
     };
-
-    // Variáveis globais
-    struct BasePage pagina_vazia = {-1, '-', -1, -1, NULL};
 
 #endif

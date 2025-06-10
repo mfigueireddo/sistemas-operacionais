@@ -18,17 +18,3 @@ void fechaArquivoTexto(FILE* arquivo)
 {
     fclose(arquivo);
 }
-
-BasePage* getMemoria(char *segmento_memoria)
-{
-    int shm;
-    shm = atoi(segmento_memoria);
-    BasePage *memoria = (BasePage*)shmat(shm, NULL, 0);
-    if (memoria == (void*)-1){ fprintf(stderr, "(!) Erro ao estabelecer ligação entre o processo 1 e o segmento de memória compartilhada\n"); exit(1); }
-    return memoria;
-}
-
-int procuraEspacoLivre(void)
-{
-    
-}

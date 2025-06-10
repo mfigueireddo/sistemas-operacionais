@@ -13,21 +13,17 @@ int main(int argc, char *argv[])
         printf("<> Processo 1 criado\n");
     #endif
 
-    // Faz a ligação com o segmento de memória
-    BasePage *memoria = getMemoria(argv[1]);
-
     FILE* arquivo;
     arquivo = abreArquivoTexto("arquivos_txt/ordem_processo1.txt", 'r');
 
+    // Faz a conexão com a pipe que o liga ao GMV
+
     sleep(6);
-    char buffer[10]; int idx_livre;
+    char buffer[10];
     
     while( fgets(buffer, sizeof(buffer), arquivo) != NULL )
     {
         printf("<> Processo 1 - %s", buffer);
-        
-        // Procura o primeiro endereço de memória vago
-        idx_livre = procuraEspacoLivre();
 
         sleep(2);
     }

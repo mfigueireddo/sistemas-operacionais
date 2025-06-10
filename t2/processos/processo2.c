@@ -13,17 +13,18 @@ int main(int argc, char *argv[])
         printf("<> Processo 2 criado\n");
     #endif
 
-    // Faz a ligação com o segmento de memória
-    int *memoria = getMemoria(argv[1]);
-
     FILE* arquivo;
     arquivo = abreArquivoTexto("arquivos_txt/ordem_processo2.txt", 'r');
 
+    // Faz a conexão com a pipe que o liga ao GMV
+
     sleep(6);
     char buffer[10];
+    
     while( fgets(buffer, sizeof(buffer), arquivo) != NULL )
     {
         printf("<> Processo 2 - %s", buffer);
+
         sleep(2);
     }
 

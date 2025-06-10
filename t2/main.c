@@ -1,13 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <unistd.h> // fork(), execlp(), kill(), sleep()
-#include <sys/wait.h> // wait()
-
+#include <unistd.h> // fork(), execl(), kill(), sleep()
 #include <pthread.h> // pthread()
 #include <time.h> // time()
 #include <signal.h> // SIGSTOP, SIGCONT
+#include <fcntl.h> // mkfifo()
 
+#include <sys/wait.h> // wait()
 #include <sys/shm.h> // shmget(), shmctl()
 #include <sys/ipc.h> // IPCs
 #include <sys/stat.h> // S_IUSR, S_IWUSR
@@ -19,22 +19,22 @@ typedef struct BasePage BasePage;
 
 // Funções do módulo
 void criaArquivosTexto(void);
-void criaMemoriaCompartilhada(void);
-void marcaMemoriaCompartilhada(void);
+void criaPipes(void);
 void criaProcessos(void);
 void pausaProcessos(void);
 void criaThreadGMV(void);
 int* geraVetorBaguncado(void);
 char geraReadWrite(void);
 void* gmv(void *arg);
+void escalonamento(int pid);
 void aguardaEncerramento(void);
 void limpaMemoria(void);
 
 // Variáveis globais do módulo
-int segmento_memoria;
 int pids[4];
 pthread_t gmv_thread;
-int flag_loop = 1;
+int flag_main = 1;
+int flag_gmv = 1;
 
 int main(void)
 {
@@ -44,8 +44,8 @@ int main(void)
     // Cria os arquivos com as ordens de acesso de cada processo
     criaArquivosTexto();
 
-    // Cria a memória que será compartilhada pelos processos e marca todos os espaços com NULL
-    criaMemoriaCompartilhada(); marcaMemoriaCompartilhada();
+    // Cria as PIPEs utilizadas para a transmissão de dados
+    criaPipes();
 
     // Cria 4 processos e os interrompe logo em seguida
     criaProcessos(); pausaProcessos();
@@ -55,7 +55,7 @@ int main(void)
 
     sleep(1);
 
-    while(flag_loop)
+    while(flag_main)
     {
         // Escalonamento Round-Robin
         forProcessos(i)
@@ -115,26 +115,36 @@ void criaArquivosTexto(void)
     #endif
 }
 
-void criaMemoriaCompartilhada(void)
+void criaPipes(void)
 {
-    segmento_memoria = shmget(IPC_PRIVATE, sizeof(BasePage)*MAX_PAGINAS, IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
-    if (segmento_memoria == -1){ fprintf(stderr, "(!) Erro na criação de memória compartilhada\n"); exit(1); }
-}
+    #if MODO_TESTE
+        printf("\n> Iniciando criação das PIPEs\n");
+    #endif
 
-void marcaMemoriaCompartilhada(void)
-{
-    BasePage* memoria = getMemoria(segmento_memoria);
+    char nome_pipe[50];
+    forProcessos(i){
 
-    forMemoriaCompartilhada(i)
-    {
-        memoria[i] = pagina_vazia;
+        #if MODO_TESTE
+            printf("> Criando a PIPE %d\n", i+1);
+        #endif
+
+        sprintf(nome_pipe, "pipes/pipe%d", i+1);
+        if ( mkfifo(nome_pipe, READWRITEMODE) != 0){ fprintf(stderr, "(!) Erro na criação da PIPE %d\n", i+1); exit(1); }
+
+        #if MODO_TESTE
+            printf("> PIPE %d criada\n", i+1);
+        #endif
     }
+
+    #if MODO_TESTE
+        printf("> Todos as PIPEs foram criadas\n");
+    #endif
 }
 
 void criaProcessos(void)
 {
     #if MODO_TESTE
-        printf("\n> Iniciando criação dos 4 processos\n");
+        printf("\n> Iniciando criação dos processos\n");
     #endif
 
     forProcessos(i)
@@ -146,11 +156,10 @@ void criaProcessos(void)
         pids[i] = fork();
         if (pids[i] == 0) // Filho
         {
-            char executavel[100], nome_programa[100], str_segmento_memoria[100];
+            char executavel[100], nome_programa[100];
             sprintf(executavel, "./processos/processo%d", i+1);
             sprintf(nome_programa, "processo%d", i+1);
-            sprintf(str_segmento_memoria, "%d", segmento_memoria);
-            execlp(executavel, nome_programa, str_segmento_memoria, NULL);
+            execl(executavel, nome_programa, NULL);
             exit(0);
         }
 
@@ -158,14 +167,14 @@ void criaProcessos(void)
     }
 
     #if MODO_TESTE
-        printf("> Todos os 4 processos foram criados\n");
+        printf("> Todos os processos foram criados\n");
     #endif
 }
 
 void pausaProcessos(void)
 {
     #if MODO_TESTE
-        printf("\n> Ordenando a pausa dos 4 processos\n");
+        printf("\n> Ordenando a pausa dos processos\n");
     #endif
 
     forProcessos(i)
@@ -182,7 +191,7 @@ void pausaProcessos(void)
     }
 
     #if MODO_TESTE
-        printf("> Todos os 4 processos foram pausados\n");
+        printf("> Todos os processos foram pausados\n");
     #endif
 }
 
@@ -220,6 +229,11 @@ void* gmv(void *arg)
     #if MODO_TESTE
         printf("\n> Gerenciador de Memória Virtual iniciado\n");
     #endif
+
+    while(flag_gmv)
+    {
+
+    }
 
     #if MODO_TESTE
         printf("> Gerenciador de Memória Virtual encerrado\n");
@@ -267,8 +281,12 @@ void limpaMemoria(void)
         printf("\n> Iniciando a limpeza da memória\n");
     #endif
 
-    // Remoção da área de memória compartilhada
-    shmctl(segmento_memoria, IPC_RMID, NULL);
+    // Remoção das PIPEs
+    char nome_pipe[50];
+    forProcessos(i){
+        sprintf(nome_pipe, "pipes/pipe%d", i+1);
+        if ( unlink(nome_pipe) != 0){ fprintf(stderr, "(!) Erro na remoção da PIPE %d\n", i+1); exit(1); }
+    }
 
     #if MODO_TESTE
         printf("> Memória limpa\n");
