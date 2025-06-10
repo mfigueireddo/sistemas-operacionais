@@ -12,7 +12,7 @@
     #define MAX_PAGINAS 16
     #define forProcessos(i) for(int i=0; i<QTD_PROCESSOS; i++)
     #define forPaginas(i) for(int i=0; i<QTD_PAGINAS; i++)
-    #define forMemoria(i) for(int i=0; i<16; i++)
+    #define forMemoria(i) for(int i=0; i<MAX_PAGINAS; i++)
     #define READWRITE_MODE 0666
     #define READ_MODE (O_RDONLY | O_NONBLOCK)
     #define WRITE_MODE (O_WRONLY | O_NONBLOCK)

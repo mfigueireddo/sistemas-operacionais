@@ -32,12 +32,14 @@ void escalonamento(int pid);
 void aguardaEncerramento(void);
 void limpaMemoriaMain(void);
 void limpaMemoriaGMV(int *pipes);
+int checaFim(void);
 
 // Variáveis globais do módulo
 int pids[4];
 pthread_t gmv_thread;
 int flag_main = 1;
 int flag_gmv = 1;
+int paginas_lidas = 0;
 
 /* 
 Próximos passos
@@ -245,7 +247,8 @@ void* gmv(void *arg)
 
     while(flag_gmv)
     {
-        checaPipes(pipes);
+        if (checaPipes(pipes) ){ paginas_lidas++; }
+        if ( checaFim() ){ break; }
     }
 
     limpaMemoriaGMV(pipes);
@@ -277,7 +280,7 @@ int checaPipes(int *pipes)
     char buffer[10]; int tam;
 
     forProcessos(i){
-        tam = read(pipes[0], &buffer, sizeof(buffer));
+        tam = read(pipes[i], &buffer, sizeof(buffer));
         if (tam > 0)
         {
             buffer[tam] = '\0';
@@ -353,4 +356,15 @@ void limpaMemoriaGMV(int *pipes)
     #if MODO_TESTE
         printf("> Memória da GMV limpa\n");
     #endif
+}
+
+int checaFim(void)
+{
+    if (paginas_lidas == QTD_PAGINAS*QTD_PROCESSOS)
+    {
+        flag_main = 0; flag_gmv = 0;
+        return 1;
+    }
+
+    return 0;
 }
