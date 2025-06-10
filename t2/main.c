@@ -26,15 +26,25 @@ void criaThreadGMV(void);
 int* geraVetorBaguncado(void);
 char geraReadWrite(void);
 void* gmv(void *arg);
+int* abrePipes(void);
+int checaPipes(int *pipes);
 void escalonamento(int pid);
 void aguardaEncerramento(void);
-void limpaMemoria(void);
+void limpaMemoriaMain(void);
+void limpaMemoriaGMV(int *pipes);
 
 // Variáveis globais do módulo
 int pids[4];
 pthread_t gmv_thread;
 int flag_main = 1;
 int flag_gmv = 1;
+
+/* 
+Próximos passos
+1. Revisar funcionamento geral do programa
+2. Criar variáveis globais para evitar passar para as funções
+3. Procurar maneira mais eficiente de checar se há algo novo nas PIPEs
+*/
 
 int main(void)
 {
@@ -73,7 +83,7 @@ int main(void)
     aguardaEncerramento();
 
     // Libera a memória utilizada dinamicamente pelo programa
-    limpaMemoria();
+    limpaMemoriaMain();
 
     return 0;
 }
@@ -231,7 +241,27 @@ void* gmv(void *arg)
         printf("\n> Gerenciador de Memória Virtual iniciado\n");
     #endif
 
-    char nome_pipe[50]; int pipes[4];
+    int *pipes = abrePipes();
+
+    while(flag_gmv)
+    {
+        checaPipes(pipes);
+    }
+
+    limpaMemoriaGMV(pipes);
+
+    #if MODO_TESTE
+        printf("> Gerenciador de Memória Virtual encerrado\n");
+    #endif
+}
+
+int* abrePipes(void)
+{
+    int *pipes;
+    pipes = (int*)malloc(sizeof(int)*QTD_PROCESSOS);
+
+    char nome_pipe[50];
+
     forProcessos(i)
     {
         sprintf(nome_pipe, "pipes/pipe%d", i+1);
@@ -239,26 +269,24 @@ void* gmv(void *arg)
         if (pipes[i] < 0){ fprintf(stderr, "(!) Erro na abertura da PIPE %d", i+1); exit(1); }
     }
 
+    return pipes;
+}
+
+int checaPipes(int *pipes)
+{
     char buffer[10]; int tam;
-    while(flag_gmv)
-    {
-        // Confere se tem algo novo nas PIPEs
-        forProcessos(i){
-            tam = read(pipes[0], &buffer, sizeof(buffer));
-            if (tam > 0)
-            {
-                buffer[tam] = '\0';
-                printf("> GMV - %s\n", buffer);
-                break;
-            }
+
+    forProcessos(i){
+        tam = read(pipes[0], &buffer, sizeof(buffer));
+        if (tam > 0)
+        {
+            buffer[tam] = '\0';
+            printf("> GMV - %s\n", buffer);
+            return 1;
         }
     }
 
-    forProcessos(i){ close(pipes[i]); }
-
-    #if MODO_TESTE
-        printf("> Gerenciador de Memória Virtual encerrado\n");
-    #endif
+    return 0;
 }
 
 void escalonamento(int pid)
@@ -296,10 +324,10 @@ void aguardaEncerramento(void)
     }
 }
 
-void limpaMemoria(void)
+void limpaMemoriaMain(void)
 {
     #if MODO_TESTE
-        printf("\n> Iniciando a limpeza da memória\n");
+        printf("\n> Iniciando a limpeza da memória da main\n");
     #endif
 
     // Remoção das PIPEs
@@ -310,6 +338,19 @@ void limpaMemoria(void)
     }
 
     #if MODO_TESTE
-        printf("> Memória limpa\n");
+        printf("> Memória da main limpa\n");
+    #endif
+}
+
+void limpaMemoriaGMV(int *pipes)
+{
+    #if MODO_TESTE
+        printf("\n> Iniciando a limpeza da memória da GMV\n");
+    #endif
+
+    forProcessos(i){ close(pipes[i]); }
+
+    #if MODO_TESTE
+        printf("> Memória da GMV limpa\n");
     #endif
 }
