@@ -18,7 +18,8 @@
 // Estrutura
 typedef struct BasePage BasePage;
 
-// Funções do módulo
+// Funções do módulo]
+void imprimeLegenda(void);
 void criaArquivosTexto(void);
 void criaPipes(void);
 void criaProcessos(void);
@@ -37,7 +38,8 @@ int checaFim(void);
 BasePage** criaMemoriaRAM(void);
 int checaMemoriaVazia(BasePage *pagina);
 int procuraMemoriaVazia(BasePage** memoria_ram);
-void atribuiPagina(char *dados, int idx_processo, BasePage **memoria_ram, int idx_memoria);
+void atribuiPagina(char *dados, BasePage **memoria_ram, int idx_memoria, int idx_processo);
+void acionaRedistribuicao(char *dados, BasePage** memoria_ram, int idx_memoria);
 
 // Variáveis globais do módulo
 int pids[4];
@@ -52,10 +54,17 @@ Próximos passos
 2. Criar variáveis globais para evitar passar para as funções
 3. Procurar maneira mais eficiente de checar se há algo novo nas PIPEs
 4. Mudar limite da criação de arquivos
+5. Adicionar mutex ao trecho de memória principal da GMV
+6. Conferir quais mensagem estão sendo escritas sem o modo teste
 */
 
 int main(void)
 {
+    #if MODO_TESTE
+        imprimeLegenda();
+        printf("> Iniciando o programa\n");
+    #endif
+
     // Pega a semente do rand()
     srand(time(NULL));
 
@@ -93,13 +102,25 @@ int main(void)
     // Libera a memória utilizada dinamicamente pelo programa
     limpaMemoriaMain();
 
+    #if MODO_TESTE
+        printf("> Encerrando o programa\n");
+    #endif
+
     return 0;
+}
+
+void imprimeLegenda(void)
+{
+    printf(">>> Legenda <<<\n");
+    printf(">   indica mensagem escrita pela main\n");
+    printf("<>  indica mensagem escrita pelos processos\n");
+    printf("(!) indica mensagem de erro\n\n");
 }
 
 void criaArquivosTexto(void)
 {
     #if MODO_TESTE
-        printf("\n> Iniciando criaçao dos 4 arquivos texto\n");
+        printf("\n> Iniciando criação dos arquivos texto\n");
     #endif
 
     // Abre os arquivos no modo escrita
@@ -130,7 +151,7 @@ void criaArquivosTexto(void)
     free(nums);
 
     #if MODO_TESTE
-        printf("> Todos os 4 arquivos texto foram criados\n");
+        printf("> Todos os arquivos texto foram criados\n");
     #endif
 }
 
@@ -156,7 +177,7 @@ void criaPipes(void)
     }
 
     #if MODO_TESTE
-        printf("> Todos as PIPEs foram criadas\n");
+        printf("> Todas as PIPEs foram criadas\n");
     #endif
 }
 
@@ -257,14 +278,37 @@ void* gmv(void *arg)
     {
         if ( idx_processo = checaPipes(pipes, buffer) )
         { 
-            paginas_lidas++; 
             idx_memoria = procuraMemoriaVazia(memoria_ram);
 
-            if (idx_memoria != -1){ atribuiPagina(buffer, memoria_ram, idx_memoria, idx_processo); }
-            else{ acionaRedistribuicao(buffer, memoria_ram, idx_memoria); }
+            if (idx_memoria != -1)
+            {
+                #if MODO_TESTE
+                    printf("> Espaço de memória vago no índice %d. Acionando registro de página...\n", idx_memoria);
+                #endif
+
+                atribuiPagina(buffer, memoria_ram, idx_memoria, idx_processo); 
+            }
+            else
+            {
+                #if MODO_TESTE
+                    printf("> Não há nenhum espaço disponível na memória. Acionando redistruição de páginas...\n");
+                #endif
+
+                acionaRedistribuicao(buffer, memoria_ram, idx_memoria); 
+            }
+
+            paginas_lidas++; 
+            
+            #if MODO_TESTE
+                printf("> %d páginas lidas\n", paginas_lidas);
+            #endif
         }
         if ( checaFim() ){ break; }
     }
+
+    #if MODO_TESTE
+        printf("> Todos os processos conseguiram colocar suas páginas na memória. Encerrando GMV...\n");
+    #endif
 
     limpaMemoriaGMV(pipes, memoria_ram);
 
@@ -422,7 +466,7 @@ int procuraMemoriaVazia(BasePage** memoria_ram)
     return -1;
 }
 
-void atribuiPagina(char *dados, int idx_processo, BasePage **memoria_ram, int idx_memoria)
+void atribuiPagina(char *dados, BasePage **memoria_ram, int idx_memoria, int idx_processo)
 {
     int num; char modo;
     sscanf(dados, "%d %c", &num, &modo);
@@ -434,4 +478,8 @@ void atribuiPagina(char *dados, int idx_processo, BasePage **memoria_ram, int id
     pagina->modo = modo;
     pagina->processo = idx_processo;
     pagina->extra = NULL;
+}
+
+void acionaRedistribuicao(char *dados, BasePage** memoria_ram, int idx_memoria)
+{
 }

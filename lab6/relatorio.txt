@@ -289,8 +289,14 @@ $ gcc cliente.c -o cliente
 $ ./cliente
 
 Resultado (terminal do cliente)
-Digite uma mensagem: teste
-Resposta do servidor: TESTE
+Digite uma mensagem: teste1
+Resposta do servidor: TESTE1
+
+Digite uma mensagem: tesTe2
+Resposta do servidor: TESTE2
+
+Digite uma mensagem: Teste3
+Resposta do servidor: TESTE3
 
 Conclusão
 Neste exercício, foram utilizadas duas FIFOs para implementar uma comunicação entre processo cliente e servidor. 
