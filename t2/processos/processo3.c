@@ -2,6 +2,8 @@
 #include <stdlib.h>
 
 #include <unistd.h> // sleep()
+#include <fcntl.h>
+#include <string.h>
 
 #include "../utils.h"
 
@@ -16,20 +18,22 @@ int main(int argc, char *argv[])
     FILE* arquivo;
     arquivo = abreArquivoTexto("arquivos_txt/ordem_processo3.txt", 'r');
 
-    // Faz a conexão com a pipe que o liga ao GMV
+    int pipe;
+    pipe = conectaPipe("pipes/pipe3", WRITE_MODE);
 
     sleep(6);
+
     char buffer[10];
-    
     while( fgets(buffer, sizeof(buffer), arquivo) != NULL )
     {
         printf("<> Processo 3 - %s", buffer);
-
-        sleep(2);
+        write(pipe, buffer, strlen(buffer));
+        sleep(3);
     }
 
     // Limpa a memória
     fechaArquivoTexto(arquivo);
+    close(pipe);
 
     #if MODO_TESTE
         printf("\n<> Processo 3 encerrado\n");

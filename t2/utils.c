@@ -1,7 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <sys/shm.h> // shmat()
+#include <fcntl.h> // open()
+
+#include <errno.h>
+#include <string.h>
 
 #include "utils.h"
 
@@ -17,4 +20,12 @@ FILE* abreArquivoTexto(char* caminho, char modo)
 void fechaArquivoTexto(FILE* arquivo)
 {
     fclose(arquivo);
+}
+
+int conectaPipe(char *caminho, int modo)
+{
+    int pipe;
+    pipe = open(caminho, modo);
+    if (pipe < 0){ fprintf(stderr, "(!) Erro na abertura da PIPE 1 %s\n", strerror(errno)); exit(1); }
+    return pipe;
 }

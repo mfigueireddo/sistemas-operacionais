@@ -47,11 +47,11 @@ int main(void)
     // Cria as PIPEs utilizadas para a transmissão de dados
     criaPipes();
 
+    // Executa uma thread que será responsável por gerenciar a memória
+    criaThreadGMV(); sleep(1);
+
     // Cria 4 processos e os interrompe logo em seguida
     criaProcessos(); pausaProcessos();
-
-    // Executa uma thread que será responsável por gerenciar a memória
-    criaThreadGMV();
 
     sleep(1);
 
@@ -65,6 +65,7 @@ int main(void)
             #endif
 
             escalonamento(pids[i]);
+            sleep(1);
         }
     }
 
@@ -129,7 +130,7 @@ void criaPipes(void)
         #endif
 
         sprintf(nome_pipe, "pipes/pipe%d", i+1);
-        if ( mkfifo(nome_pipe, READWRITEMODE) != 0){ fprintf(stderr, "(!) Erro na criação da PIPE %d\n", i+1); exit(1); }
+        if ( mkfifo(nome_pipe, READWRITE_MODE) != 0){ fprintf(stderr, "(!) Erro na criação da PIPE %d\n", i+1); exit(1); }
 
         #if MODO_TESTE
             printf("> PIPE %d criada\n", i+1);
@@ -230,10 +231,30 @@ void* gmv(void *arg)
         printf("\n> Gerenciador de Memória Virtual iniciado\n");
     #endif
 
+    char nome_pipe[50]; int pipes[4];
+    forProcessos(i)
+    {
+        sprintf(nome_pipe, "pipes/pipe%d", i+1);
+        pipes[i] = open(nome_pipe, READ_MODE);
+        if (pipes[i] < 0){ fprintf(stderr, "(!) Erro na abertura da PIPE %d", i+1); exit(1); }
+    }
+
+    char buffer[10]; int tam;
     while(flag_gmv)
     {
-
+        // Confere se tem algo novo nas PIPEs
+        forProcessos(i){
+            tam = read(pipes[0], &buffer, sizeof(buffer));
+            if (tam > 0)
+            {
+                buffer[tam] = '\0';
+                printf("> GMV - %s\n", buffer);
+                break;
+            }
+        }
     }
+
+    forProcessos(i){ close(pipes[i]); }
 
     #if MODO_TESTE
         printf("> Gerenciador de Memória Virtual encerrado\n");

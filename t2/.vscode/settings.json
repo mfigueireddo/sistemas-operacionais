@@ -5,6 +5,7 @@
         "shm.h": "c",
         "wait.h": "c",
         "unistd.h": "c",
-        "pthread.h": "c"
+        "pthread.h": "c",
+        "fcntl.h": "c"
     }
 }

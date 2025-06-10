@@ -13,13 +13,14 @@
     #define forProcessos(i) for(int i=0; i<QTD_PROCESSOS; i++)
     #define forPaginas(i) for(int i=0; i<QTD_PAGINAS; i++)
     #define forMemoria(i) for(int i=0; i<16; i++)
-    #define READWRITEMODE O_RDWR 
-    #define READMODE O_RDONLY
-    #define WRITEMODE O_WRONLY
+    #define READWRITE_MODE 0666
+    #define READ_MODE (O_RDONLY | O_NONBLOCK)
+    #define WRITE_MODE (O_WRONLY | O_NONBLOCK)
 
     // Funções de utils.c
     FILE* abreArquivoTexto(char* caminho, char modo);
     void fechaArquivoTexto(FILE* arquivo);
+    int conectaPipe(char *caminho, int modo);
 
     // Estrutura básica de uma página
     struct BasePage
