@@ -1,14 +1,7 @@
-#include <stdio.h>
-#include <stdlib.h>
-
-#include <fcntl.h> // open()
-
-#include <errno.h>
-#include <string.h>
-
 #include "utils.h"
 
-typedef struct BasePage BasePage;
+#include <fcntl.h>
+#include <string.h>
 
 FILE* abreArquivoTexto(char* caminho, char modo)
 {
@@ -26,6 +19,6 @@ int conectaPipe(char *caminho, int modo)
 {
     int pipe;
     pipe = open(caminho, modo);
-    if (pipe < 0){ fprintf(stderr, "(!) Erro na abertura da PIPE 1 %s\n", strerror(errno)); exit(1); }
+    if (pipe < 0){ fprintf(stderr, "(!) Erro na abertura da PIPE 1\n"); exit(1); }
     return pipe;
 }

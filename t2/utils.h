@@ -1,6 +1,9 @@
 #ifndef UTILS
 #define UTILS
 
+    #include <stdio.h>
+    #include <stdlib.h>
+
     // Exibe mensagens para acompanhar o andamento do programa
     #ifndef MODO_TESTE
     #define MODO_TESTE 0
@@ -23,12 +26,12 @@
     int conectaPipe(char *caminho, int modo);
 
     // Estrutura básica de uma página
-    struct BasePage
+    typedef struct BasePage
     {
         int num;
         char modo;
         int processo;
         void* extra;
-    };
+    } BasePage;
 
 #endif

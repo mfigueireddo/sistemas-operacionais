@@ -1,13 +1,8 @@
-#include <stdio.h>
-#include <stdlib.h>
-
-#include <unistd.h> // sleep()
-#include <fcntl.h>
-#include <string.h>
-
 #include "../utils.h"
 
-typedef struct BasePage BasePage;
+#include <unistd.h>
+#include <fcntl.h>
+#include <string.h>
 
 int main(int argc, char *argv[])
 {

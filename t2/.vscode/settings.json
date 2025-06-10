@@ -6,6 +6,11 @@
         "wait.h": "c",
         "unistd.h": "c",
         "pthread.h": "c",
-        "fcntl.h": "c"
+        "fcntl.h": "c",
+        "stat.h": "c",
+        "ipc.h": "c",
+        "signal.h": "c",
+        "string.h": "c",
+        "utils.h": "c"
     }
 }
