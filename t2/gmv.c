@@ -53,7 +53,7 @@ void* gmv(void *arg)
     while(flag_gmv)
     {
         // Confere se algum processo enviou uma mensagem
-        if ( idx_processo = checaPipes(buffer) )
+        if ( (idx_processo = checaPipes(buffer)) != -1)
         { 
             idx_memoria = procuraMemoriaVazia();
 
@@ -127,7 +127,7 @@ int checaPipes(char *retorno)
         }
     }
 
-    return 0;
+    return -1;
 }
 
 // GMV

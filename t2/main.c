@@ -215,7 +215,7 @@ void criaPipes(void)
 // GMV
 void criaThreadGMV(void)
 {
-    LOG("> Criando a thread GMV...");
+    LOG("> Criando a thread GMV...\n");
 
     if( pthread_create(&gmv_thread, NULL, gmv, NULL) != 0 ){ fprintf(stderr, "(!) Erro na criação da thread GMV\n"); exit(1); } 
 
