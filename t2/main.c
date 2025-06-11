@@ -49,10 +49,9 @@ int paginas_lidas = 0;
 
 int main(void)
 {
-    #if MODO_TESTE
-        imprimeLegenda();
-        printf("> Iniciando o programa\n");
-    #endif
+    imprimeLegenda();
+
+    LOG("> Iniciando o programa\n");
 
     // Pega a semente do rand()
     srand(time(NULL));
@@ -76,9 +75,7 @@ int main(void)
         // Escalonamento Round-Robin
         forProcessos(i)
         {
-            #if MODO_TESTE
-                printf("\n> Escalonamento: vez do processo %d\n", i+1);
-            #endif
+            LOG("\n> Escalonamento: vez do processo %d\n", i+1);
 
             escalonamento(pids[i]);
             sleep(1);
@@ -91,9 +88,7 @@ int main(void)
     // Libera a memória utilizada dinamicamente pelo programa
     limpaMemoriaMain();
 
-    #if MODO_TESTE
-        printf("> Encerrando o programa\n");
-    #endif
+    LOG("> Encerrando o programa\n");
 
     return 0;
 }
@@ -101,22 +96,26 @@ int main(void)
 // Processos
 void criaArquivosTexto(void)
 {
-    #if MODO_TESTE
-        printf("\n> Iniciando criação dos arquivos texto...\n");
-    #endif
+    LOG("\n> Iniciando criação dos arquivos texto...\n");
 
     // Abre os arquivos no modo escrita
     FILE *arquivos[4]; char caminho[100];
     forProcessos(i)
     {
+        LOG("> Criando o arquivo texto %d...\n", i+1);
+
         sprintf(caminho, "./arquivos_txt/ordem_processo%d.txt", i+1);
         arquivos[i] = abreArquivoTexto(caminho, 'w');
+
+        LOG("> Arquivo texto %d criado!\n", i+1);
     }
 
     // Monta os arquivos de cada processo
     int *nums, modo;
     forProcessos(i)
     {
+        LOG("> Preenchendo o arquivo texto %d...\n", i+1);
+
         nums = geraVetorBaguncado(); // Gera um vetor de números
 
         forPaginas(j)
@@ -124,30 +123,32 @@ void criaArquivosTexto(void)
             modo = geraReadWrite(); // Gera 'W' ou 'R'
             fprintf(arquivos[i], "%d %c\n", nums[j], modo);
         }
+
+        LOG("> Arquivo texto %d preenchido!\n", i+1);
     }
 
     // Fecha os arquivos
-    forProcessos(i){ fechaArquivoTexto(arquivos[i]); }
+    forProcessos(i){
+        LOG("> Fechando o arquivo texto %d...\n", i+1);
+
+        fechaArquivoTexto(arquivos[i]);
+
+        LOG("> Arquivo texto %d fechado!\n", i+1);
+    }
 
     // Libera a memória alocada para nums
     free(nums);
 
-    #if MODO_TESTE
-        printf("> Todos os arquivos texto foram criados!\n");
-    #endif
+    LOG("> Todos os arquivos texto foram criados!\n");
 }
 
 void criaProcessos(void)
 {
-    #if MODO_TESTE
-        printf("\n> Iniciando criação dos processos...\n");
-    #endif
+    LOG("\n> Iniciando criação dos processos...\n");
 
     forProcessos(i)
     {
-        #if MODO_TESTE
-            printf("> Criando o processo %d\n", i+1);
-        #endif
+        LOG("> Criando o processo %d...\n", i+1);
 
         pids[i] = fork();
         if (pids[i] == 0) // Filho
@@ -162,73 +163,63 @@ void criaProcessos(void)
         sleep(1);
     }
 
-    #if MODO_TESTE
-        printf("> Todos os processos foram criados!\n");
-    #endif
+    LOG("> Todos os processos foram criados!\n");
 }
 
 void pausaProcessos(void)
 {
-    #if MODO_TESTE
-        printf("\n> Ordenando a pausa dos processos...\n");
-    #endif
+    LOG("\n> Ordenando a pausa dos processos...\n");
 
     forProcessos(i)
     {
-        #if MODO_TESTE
-            printf("> Pausando o processo %d\n", i+1);
-        #endif 
+        LOG("> Pausando o processo %d...\n", i+1);
 
         kill(pids[i], SIGSTOP); 
 
-        #if MODO_TESTE
-            printf("> Processo %d pausado\n", i+1);
-        #endif 
+        LOG("> Processo %d pausado!\n", i+1);
     }
 
-    #if MODO_TESTE
-        printf("> Todos os processos foram pausados!\n");
-    #endif
+    LOG("> Todos os processos foram pausados!\n");
 }
 
 void escalonamento(int pid)
 {
+    LOG("> Ordenando que o processo continue\n");
     kill(pid, SIGCONT);
+
     sleep(1);
+
+    LOG("> Ordenando que o processo pare\n");
     kill(pid, SIGSTOP);
 }
 
 // PIPEs
 void criaPipes(void)
 {
-    #if MODO_TESTE
-        printf("\n> Iniciando criação das PIPEs...\n");
-    #endif
+    LOG("\n> Iniciando criação das PIPEs...\n");
 
     char nome_pipe[50];
     forProcessos(i){
 
-        #if MODO_TESTE
-            printf("> Criando a PIPE %d\n", i+1);
-        #endif
+        LOG("> Criando a PIPE %d...\n", i+1);
 
         sprintf(nome_pipe, "pipes/pipe%d", i+1);
         if ( mkfifo(nome_pipe, READWRITE_MODE) != 0){ fprintf(stderr, "(!) Erro na criação da PIPE %d\n", i+1); exit(1); }
 
-        #if MODO_TESTE
-            printf("> PIPE %d criada\n", i+1);
-        #endif
+        LOG("> PIPE %d criada!\n", i+1);
     }
 
-    #if MODO_TESTE
-        printf("> Todas as PIPEs foram criadas!\n");
-    #endif
+    LOG("> Todas as PIPEs foram criadas!\n");
 }
 
 // GMV
 void criaThreadGMV(void)
 {
+    LOG("> Criando a thread GMV...");
+
     if( pthread_create(&gmv_thread, NULL, gmv, NULL) != 0 ){ fprintf(stderr, "(!) Erro na criação da thread GMV\n"); exit(1); } 
+
+    LOG("> Thread GMV criada!\n");
 }
 
 // Outros
@@ -236,6 +227,7 @@ void imprimeLegenda(void)
 {
     printf(">>> Legenda <<<\n");
     printf(">   indica mensagem escrita pela main\n");
+    printf(">>  indica mensagem escrita pela GMV\n");
     printf("<>  indica mensagem escrita pelos processos\n");
     printf("(!) indica mensagem de erro\n\n");
 }
@@ -266,46 +258,39 @@ char geraReadWrite(void)
 
 void aguardaEncerramento(void)
 {
-    #if MODO_TESTE
-        printf("\n> Aguardando o encerramento da thread...\n");
-    #endif
+    LOG("\n> Aguardando o encerramento da thread...\n");
 
     // Aguarda o encerreamento da thread GMV
     pthread_join(gmv_thread, NULL);
 
-    #if MODO_TESTE
-        printf("> Thread encerrada!\n");
-    #endif
+    LOG("> Thread encerrada!\n");
 
     // Aguarda o encerramento dos processos
     forProcessos(i)
     { 
-        #if MODO_TESTE
-            printf("> Aguardando o encerramento do processo %d...\n", i+1);
-        #endif
+        LOG("> Aguardando o encerramento do processo %d...\n", i+1);
 
         waitpid(pids[i], NULL, 0); 
 
-        #if MODO_TESTE
-            printf("> Processo %d encerrado!\n", i+1);
-        #endif
+        LOG("> Processo %d encerrado!\n", i+1);
     }
 }
 
 void limpaMemoriaMain(void)
 {
-    #if MODO_TESTE
-        printf("\n> Iniciando a limpeza da memória da main...\n");
-    #endif
+    LOG("\n> Iniciando a limpeza da memória da main...\n");
 
     // Remoção das PIPEs
     char nome_pipe[50];
-    forProcessos(i){
+    forProcessos(i)
+    {
+        LOG("> Removendo a PIPE %d...\n", i+1);
+
         sprintf(nome_pipe, "pipes/pipe%d", i+1);
         if ( unlink(nome_pipe) != 0){ fprintf(stderr, "(!) Erro na remoção da PIPE %d\n", i+1); exit(1); }
+    
+        LOG("> PIPE %d removida!", i+1);
     }
 
-    #if MODO_TESTE
-        printf("> Memória da main limpa!\n");
-    #endif
+    LOG("> Memória da main limpa!\n");
 }

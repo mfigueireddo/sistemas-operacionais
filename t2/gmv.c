@@ -44,9 +44,7 @@ extern int paginas_lidas;
 
 void* gmv(void *arg)
 {
-    #if MODO_TESTE
-        printf("\n> Gerenciador de Memória Virtual iniciado...\n");
-    #endif
+    LOG("\n>> Gerenciador de Memória Virtual iniciado...\n");
 
     abrePipes();
     criaMemoriaRAM();
@@ -61,61 +59,55 @@ void* gmv(void *arg)
 
             if (idx_memoria != -1)
             {
-                #if MODO_TESTE
-                    printf("> Espaço de memória vago no índice %d. Acionando registro de página...\n", idx_memoria);
-                #endif
+                LOG(">> Espaço de memória vago no índice %d. Acionando registro de página...\n", idx_memoria);
 
                 atribuiPagina(buffer, idx_memoria, idx_processo); 
 
-                #if MODO_TESTE
-                    printf("> Registro concluído!\n");
-                #endif
+                LOG(">> Registro concluído!\n");
             }
             else
             {
-                #if MODO_TESTE
-                    printf("> Não há nenhum espaço disponível na memória. Acionando redistruição de páginas...\n");
-                #endif
+                LOG(">> Não há nenhum espaço disponível na memória. Acionando redistruição de páginas...\n");
 
                 acionaRedistribuicao(buffer, idx_memoria); 
 
-                #if MODO_TESTE
-                    printf("> Redistribuição concluída!\n");
-                #endif
+                LOG(">> Redistribuição concluída!\n");
             }
 
             paginas_lidas++; 
             
-            #if MODO_TESTE
-                printf("> %d páginas lidas\n", paginas_lidas);
-            #endif
+            LOG(">> %d páginas lidas\n", paginas_lidas);
         }
         if ( checaFim() ){ break; }
     }
 
-    #if MODO_TESTE
-        printf("> Todos os processos conseguiram colocar suas páginas na memória. Encerrando GMV...\n");
-    #endif
+    LOG(">> Todos os processos conseguiram colocar suas páginas na memória. Encerrando GMV...\n");
 
     limpaMemoriaGMV();
 
-    #if MODO_TESTE
-        printf("> Gerenciador de Memória Virtual encerrado!\n");
-    #endif
+    LOG(">> Gerenciador de Memória Virtual encerrado!\n");
 }
 
 void abrePipes(void)
 {
+    LOG(">> Iniciando a abertura das PIPEs...\n");
+
     pipes = (int*)malloc(sizeof(int)*QTD_PROCESSOS);
 
     char nome_pipe[50];
 
     forProcessos(i)
     {
+        LOG(">> Abrindo a PIPE %d...\n", i+1);
+
         sprintf(nome_pipe, "pipes/pipe%d", i+1);
         pipes[i] = open(nome_pipe, READ_MODE);
         if (pipes[i] < 0){ fprintf(stderr, "(!) Erro na abertura da PIPE %d", i+1); exit(1); }
+
+        LOG(">> PIPE %d aberta!\n", i+1);
     }
+
+    LOG(">> Todas as PIPEs foram abertas!\n");
 }
 
 int checaPipes(char *retorno)
@@ -126,8 +118,10 @@ int checaPipes(char *retorno)
         tam = read(pipes[i], &buffer, sizeof(buffer));
         if (tam > 0)
         {
+            LOG(">> Nova mensagem na PIPE %d\n", i+1);
+
             buffer[tam] = '\0';
-            printf("> GMV - %s\n", buffer);
+            printf(">> GMV - %s\n", buffer);
             strcpy(retorno, buffer);
             return i;
         }
@@ -140,22 +134,29 @@ int checaPipes(char *retorno)
 
 void limpaMemoriaGMV(void)
 {
-    #if MODO_TESTE
-        printf("\n> Iniciando a limpeza da memória da GMV...\n");
-    #endif
+    LOG("\n> Iniciando a limpeza da memória da GMV...\n");
 
-    forProcessos(i){ close(pipes[i]); }
+    LOG("\n> Ordenando o fechamento das PIPEs...");
+    forProcessos(i)
+    { 
+        LOG(">> Fechando a PIPE %d...\n", i+1);
+        close(pipes[i]); 
+        LOG(">> PIPE %d fechada!\n", i+1);
+    }
+    LOG("\n> Todas as PIPEs foram fechadas!\n");
 
+    LOG("\n> Liberando a memória alocada para Memória RAM...\n");
     forMemoria(i){ free(memoria_ram[i]); }
     free(memoria_ram);
+    LOG("\n> Memória liberada!\n");
 
-    #if MODO_TESTE
-        printf("> Memória da GMV limpa!\n");
-    #endif
+    LOG(">> Memória da GMV limpa!\n");
 }
 
 void criaMemoriaRAM(void)
 {
+    LOG(">> Reservando memória para Memória RAM...\n");
+
     memoria_ram = (BasePage**)malloc(sizeof(BasePage*)*MAX_PAGINAS);
     
     forMemoria(i)
@@ -166,6 +167,8 @@ void criaMemoriaRAM(void)
         memoria_ram[i]->processo = pagina_vazia.processo;
         memoria_ram[i]->extra = pagina_vazia.extra;
     }
+
+    LOG(">> Memória reservada!\n");
 }
 
 int checaMemoriaVazia(BasePage *pagina)
@@ -192,6 +195,8 @@ int procuraMemoriaVazia(void)
 
 void atribuiPagina(char *dados, int idx_memoria, int idx_processo)
 {
+    LOG(">> Criando página na Memória RAM...\n");
+
     int num; char modo;
     sscanf(dados, "%d %c", &num, &modo);
 
@@ -203,7 +208,7 @@ void atribuiPagina(char *dados, int idx_memoria, int idx_processo)
     pagina->processo = idx_processo;
     pagina->extra = NULL;
 
-
+    LOG(">> Página criada!\n");
 }
 
 void acionaRedistribuicao(char *dados, int idx_memoria)

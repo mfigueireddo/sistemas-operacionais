@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -DMODO_TESTE=1
+CFLAGS = -DMODO_TESTE=0
 
 all: main processos/processo1 processos/processo2 processos/processo3 processos/processo4
 

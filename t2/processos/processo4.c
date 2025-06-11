@@ -6,9 +6,7 @@
 
 int main(int argc, char *argv[])
 {
-    #if MODO_TESTE
-        printf("<> Processo 4 criado\n");
-    #endif
+    LOG("<> Processo 4 criado!\n");
 
     FILE* arquivo;
     arquivo = abreArquivoTexto("arquivos_txt/ordem_processo4.txt", 'r');
@@ -30,9 +28,7 @@ int main(int argc, char *argv[])
     fechaArquivoTexto(arquivo);
     close(pipe);
 
-    #if MODO_TESTE
-        printf("\n<> Processo 4 encerrado\n");
-    #endif
+    LOG("\n<> Processo 4 encerrado\n");
 
     return 0;
 }
