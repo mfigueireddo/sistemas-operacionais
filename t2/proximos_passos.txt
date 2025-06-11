@@ -1,4 +1,4 @@
-5. Adicionar mutex ao trecho de memória principal da GMV
-6. Conferir quais mensagem estão sendo escritas sem o modo teste
-9. Criar outro arquivo para GMV
-10. Criar uma função pra esses prints de teste
+- Adicionar mutex ao trecho de memória principal da GMV
+- Conferir quais mensagem estão sendo escritas sem o modo teste
+- Criar uma função pra esses prints de teste
+- Depois que algum tempo o GMV para de ler os dados enviados pelo processo 1
