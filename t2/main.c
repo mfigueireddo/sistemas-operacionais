@@ -405,13 +405,13 @@ void imprimeLegenda(void)
 
 int* geraVetorBaguncado(void)
 {
-    // Preenche um vetor com números de 0 à 64 (inclusos)
+    // Preenche um vetor com números de 0 à 32 (inclusos)
     int *nums;
-    nums = (int*)malloc(sizeof(int)*64);
+    nums = (int*)malloc(sizeof(int)*QTD_PAGINAS);
     forPaginas(i){ nums[i] = i+1; }
 
     int new_pos, temp;
-    for(int old_pos=63; old_pos>0; old_pos--)
+    for(int old_pos=QTD_PAGINAS-1; old_pos>0; old_pos--)
     {
         new_pos = rand() % (old_pos+1);
         temp = nums[new_pos];

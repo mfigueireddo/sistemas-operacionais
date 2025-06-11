@@ -20,3 +20,4 @@ processos/processo4: processos/processo4.c
 
 clean:
 	rm -f main processos/processo1 processos/processo2 processos/processo3 processos/processo4
+	rm -f pipes/pipe1 pipes/pipe2 pipes/pipe3 pipes/pipe4
