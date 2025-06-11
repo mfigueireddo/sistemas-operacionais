@@ -1,10 +1,4 @@
-1. Revisar funcionamento geral do programa
-2. Criar variáveis globais para evitar passar para as funções
-3. Procurar maneira mais eficiente de checar se há algo novo nas PIPEs
-4. Mudar limite da criação de arquivos
 5. Adicionar mutex ao trecho de memória principal da GMV
 6. Conferir quais mensagem estão sendo escritas sem o modo teste
-7. Organizar ordem das funções
-8. Colocar 1 typedef no utils.h
 9. Criar outro arquivo para GMV
 10. Criar uma função pra esses prints de teste

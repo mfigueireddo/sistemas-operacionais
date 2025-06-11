@@ -53,6 +53,7 @@ int pids[4];
 int *pipes;
 pthread_t gmv_thread;
 BasePage** memoria_ram;
+BasePage pagina_vazia = {-1, '-', -1, NULL};
 
 // Auxiliares
 int flag_main = 1;
@@ -114,7 +115,7 @@ int main(void)
 void criaArquivosTexto(void)
 {
     #if MODO_TESTE
-        printf("\n> Iniciando criação dos arquivos texto\n");
+        printf("\n> Iniciando criação dos arquivos texto...\n");
     #endif
 
     // Abre os arquivos no modo escrita
@@ -145,14 +146,14 @@ void criaArquivosTexto(void)
     free(nums);
 
     #if MODO_TESTE
-        printf("> Todos os arquivos texto foram criados\n");
+        printf("> Todos os arquivos texto foram criados!\n");
     #endif
 }
 
 void criaProcessos(void)
 {
     #if MODO_TESTE
-        printf("\n> Iniciando criação dos processos\n");
+        printf("\n> Iniciando criação dos processos...\n");
     #endif
 
     forProcessos(i)
@@ -175,14 +176,14 @@ void criaProcessos(void)
     }
 
     #if MODO_TESTE
-        printf("> Todos os processos foram criados\n");
+        printf("> Todos os processos foram criados!\n");
     #endif
 }
 
 void pausaProcessos(void)
 {
     #if MODO_TESTE
-        printf("\n> Ordenando a pausa dos processos\n");
+        printf("\n> Ordenando a pausa dos processos...\n");
     #endif
 
     forProcessos(i)
@@ -199,7 +200,7 @@ void pausaProcessos(void)
     }
 
     #if MODO_TESTE
-        printf("> Todos os processos foram pausados\n");
+        printf("> Todos os processos foram pausados!\n");
     #endif
 }
 
@@ -214,7 +215,7 @@ void escalonamento(int pid)
 void criaPipes(void)
 {
     #if MODO_TESTE
-        printf("\n> Iniciando criação das PIPEs\n");
+        printf("\n> Iniciando criação das PIPEs...\n");
     #endif
 
     char nome_pipe[50];
@@ -233,14 +234,14 @@ void criaPipes(void)
     }
 
     #if MODO_TESTE
-        printf("> Todas as PIPEs foram criadas\n");
+        printf("> Todas as PIPEs foram criadas!\n");
     #endif
 }
 
 void* gmv(void *arg)
 {
     #if MODO_TESTE
-        printf("\n> Gerenciador de Memória Virtual iniciado\n");
+        printf("\n> Gerenciador de Memória Virtual iniciado...\n");
     #endif
 
     abrePipes();
@@ -287,7 +288,7 @@ void* gmv(void *arg)
     limpaMemoriaGMV();
 
     #if MODO_TESTE
-        printf("> Gerenciador de Memória Virtual encerrado\n");
+        printf("> Gerenciador de Memória Virtual encerrado!\n");
     #endif
 }
 
@@ -332,7 +333,7 @@ void criaThreadGMV(void)
 void limpaMemoriaGMV(void)
 {
     #if MODO_TESTE
-        printf("\n> Iniciando a limpeza da memória da GMV\n");
+        printf("\n> Iniciando a limpeza da memória da GMV...\n");
     #endif
 
     forProcessos(i){ close(pipes[i]); }
@@ -341,7 +342,7 @@ void limpaMemoriaGMV(void)
     free(memoria_ram);
 
     #if MODO_TESTE
-        printf("> Memória da GMV limpa\n");
+        printf("> Memória da GMV limpa!\n");
     #endif
 }
 
@@ -349,13 +350,18 @@ void criaMemoriaRAM(void)
 {
     memoria_ram = (BasePage**)malloc(sizeof(BasePage*)*MAX_PAGINAS);
     
-    forMemoria(i){ memoria_ram[i] = (BasePage*)malloc(sizeof(BasePage)); }
+    forMemoria(i)
+    { 
+        memoria_ram[i] = (BasePage*)malloc(sizeof(BasePage)); 
+        memoria_ram[i]->num = pagina_vazia.num;
+        memoria_ram[i]->modo = pagina_vazia.modo;
+        memoria_ram[i]->processo = pagina_vazia.processo;
+        memoria_ram[i]->extra = pagina_vazia.extra;
+    }
 }
 
 int checaMemoriaVazia(BasePage *pagina)
-{
-    BasePage pagina_vazia = {-1, '-', -1, NULL};
-    
+{   
     if(
         pagina->num != pagina_vazia.num ||
         pagina->modo != pagina_vazia.modo ||
@@ -408,7 +414,7 @@ int* geraVetorBaguncado(void)
     // Preenche um vetor com números de 0 à 32 (inclusos)
     int *nums;
     nums = (int*)malloc(sizeof(int)*QTD_PAGINAS);
-    forPaginas(i){ nums[i] = i+1; }
+    forPaginas(i){ nums[i] = i; }
 
     int new_pos, temp;
     for(int old_pos=QTD_PAGINAS-1; old_pos>0; old_pos--)
@@ -430,27 +436,27 @@ char geraReadWrite(void)
 void aguardaEncerramento(void)
 {
     #if MODO_TESTE
-        printf("\n> Aguardando o encerramento da thread\n");
+        printf("\n> Aguardando o encerramento da thread...\n");
     #endif
 
     // Aguarda o encerreamento da thread GMV
     pthread_join(gmv_thread, NULL);
 
     #if MODO_TESTE
-        printf("> Thread encerrada\n");
+        printf("> Thread encerrada!\n");
     #endif
 
     // Aguarda o encerramento dos processos
     forProcessos(i)
     { 
         #if MODO_TESTE
-            printf("> Aguardando o encerramento do processo %d\n", i+1);
+            printf("> Aguardando o encerramento do processo %d...\n", i+1);
         #endif
 
         waitpid(pids[i], NULL, 0); 
 
         #if MODO_TESTE
-            printf("> Processo %d encerrado\n", i+1);
+            printf("> Processo %d encerrado!\n", i+1);
         #endif
     }
 }
@@ -458,7 +464,7 @@ void aguardaEncerramento(void)
 void limpaMemoriaMain(void)
 {
     #if MODO_TESTE
-        printf("\n> Iniciando a limpeza da memória da main\n");
+        printf("\n> Iniciando a limpeza da memória da main...\n");
     #endif
 
     // Remoção das PIPEs
@@ -469,7 +475,7 @@ void limpaMemoriaMain(void)
     }
 
     #if MODO_TESTE
-        printf("> Memória da main limpa\n");
+        printf("> Memória da main limpa!\n");
     #endif
 }
 
