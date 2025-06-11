@@ -28,13 +28,13 @@ void escalonamento(int pid);
 // PIPEs
 void criaPipes(void);
 void* gmv(void *arg);
-int* abrePipes(void);
+void abrePipes(void);
 int checaPipes(char *retorno);
 
 // GMV
 void criaThreadGMV(void);
 void limpaMemoriaGMV(void);
-BasePage** criaMemoriaRAM(void);
+void criaMemoriaRAM(void);
 int checaMemoriaVazia(BasePage *pagina);
 int procuraMemoriaVazia(void);
 void atribuiPagina(char *dados, int idx_memoria, int idx_processo);
@@ -243,12 +243,13 @@ void* gmv(void *arg)
         printf("\n> Gerenciador de Memória Virtual iniciado\n");
     #endif
 
-    int *pipes = abrePipes();
-    memoria_ram = criaMemoriaRAM();
+    abrePipes();
+    criaMemoriaRAM();
 
     char buffer[10]; int idx_memoria, idx_processo;
     while(flag_gmv)
     {
+        // Confere se algum processo enviou uma mensagem
         if ( idx_processo = checaPipes(buffer) )
         { 
             idx_memoria = procuraMemoriaVazia();
@@ -290,9 +291,8 @@ void* gmv(void *arg)
     #endif
 }
 
-int* abrePipes(void)
+void abrePipes(void)
 {
-    int *pipes;
     pipes = (int*)malloc(sizeof(int)*QTD_PROCESSOS);
 
     char nome_pipe[50];
@@ -303,8 +303,6 @@ int* abrePipes(void)
         pipes[i] = open(nome_pipe, READ_MODE);
         if (pipes[i] < 0){ fprintf(stderr, "(!) Erro na abertura da PIPE %d", i+1); exit(1); }
     }
-
-    return pipes;
 }
 
 int checaPipes(char *retorno)
@@ -347,14 +345,11 @@ void limpaMemoriaGMV(void)
     #endif
 }
 
-BasePage** criaMemoriaRAM(void)
+void criaMemoriaRAM(void)
 {
-    BasePage** memoria_ram;
     memoria_ram = (BasePage**)malloc(sizeof(BasePage*)*MAX_PAGINAS);
     
     forMemoria(i){ memoria_ram[i] = (BasePage*)malloc(sizeof(BasePage)); }
-
-    return memoria_ram;
 }
 
 int checaMemoriaVazia(BasePage *pagina)
