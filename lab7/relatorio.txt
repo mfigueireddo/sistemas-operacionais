@@ -1,0 +1,246 @@
+Matheus Moreira da Silva Figueiredo - 2320813
+Luana Nobre da Costa - 2310204
+
+--- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
+
+1) Faça um programa que usa myallocate para alocar e desalocar memória dinâmiamente. 
+
+main.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+void *myallocate(int n);
+void initmemorypool(void);
+void resetmemorypool(void);
+
+void *memorypool;
+
+int main(void)
+{
+    initmemorypool();
+
+    int *nums = (int*)myallocate(5 * sizeof(int));
+
+    for(int i=0; i<5; i++){ nums[i] = i+1; }
+
+    printf("Números: \n");
+    for(int i=0; i<5; i++){ printf("%d ", nums[i]); }
+    printf("\n");
+
+    resetmemorypool();
+
+    return 0;
+}
+
+void *myallocate(int n)
+{
+    return sbrk(n);
+}
+
+void initmemorypool(void)
+{
+    memorypool = sbrk(0);
+}
+
+void resetmemorypool(void)
+{
+    brk(memorypool);
+}
+
+Compilação e execução
+$ gcc main.c -o main
+$ ./main
+
+Resultado 
+Números:
+1 2 3 4 5
+
+Conclusão
+- initmemorypool guarda o endereço do início da memória dinâmica
+- memorypool retorna um ponteiro para o fim do limite da memória dinâmica que tem seu tamanho alterado de acordo com o tamanho passado pelo usuário.
+- resetmemorypool desaloca a memória, utilizando um ponteiro para o endereço do início da memória dinâmica
+Com essas funções, foi alocado espaço para 5 inteiros. Esse espaço foi preenchido por um vetor de inteiros de tamanho 5.
+
+--- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
+
+2) Execute map-exemplo.c passando o nome de um arquivo como parámetro. Qual foi a novidade? 
+
+main.c
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/mman.h>
+#include <stdlib.h>
+
+int main(int argc, char *argv[])
+{
+    struct stat sb;
+    off_t len;
+    char *p;
+    int fd;
+
+    if (argc < 2) {
+        fprintf(stderr, "usage: %s <file>\n", argv[0]);
+        exit(1);
+    }
+
+    fd = open(argv[1], O_RDONLY);
+    if (fd == -1) {
+        perror("open");
+        exit(1);
+    }
+
+    if (fstat(fd, &sb) == -1) {
+        perror("fstat");
+        exit(1);
+    }
+
+    if (!S_ISREG(sb.st_mode)) {
+        fprintf(stderr, "%s is not a file\n", argv[1]);
+        exit(1);
+    }
+
+    p = mmap(0, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
+    if (p == MAP_FAILED) {
+        perror("mmap");
+        exit(1);
+    }
+
+    if (close(fd) == -1) {
+        perror("close");
+        exit(1);
+    }
+
+    for (len = 0; len < sb.st_size; len++)
+        putchar(p[len]);
+
+    if (munmap(p, sb.st_size) == -1) {
+        perror("munmap");
+        exit(1);
+    }
+
+    return 0;
+}
+
+info.txt
+info1
+info2
+info3
+
+Compilação e execução (1)
+$ gcc main.c -o main
+$ ./main info
+
+Resultado (1)
+info1
+info2
+info3
+
+Compilação e execução (2)
+$ gcc main.c -o main
+$ ./main null.txt
+
+Resultado (2)
+open: No such file or directory
+
+Compilação e execução (3)
+$ gcc main.c -o main
+$ ./main
+
+Resultado (3)
+usage: ./main <file>
+
+Conclusão
+O programa utiliza mmap para mapear um arquivo e guarda um ponteiro para a área de memória onde está esse mapeamento. Então, usa putchar para exibir o conteúdo.
+Para que mmap seja executado corretamente, são estabelecidas algumas restrições que impossibiltam o mapeamento de ser feito caso o usuário não indique um arquivo a ser mapeado na execução, ou o arquivo indicado não exista no local indicado.
+
+--- * --- --- * --- --- * --- --- * --- --- * --- --- * --- 
+
+3) Modifique map-exemplo.c para:
+a. Verificar quantas páginas de memória o arquivo precisou.
+b. Medir o quão mais rápido foi o acesso ao arquivo mapeado em memória (mmap) comparado com o acesso via leitura (read), usando gettimeofday().
+
+
+main.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <sys/time.h>
+
+int main(int argc, char *argv[]) {
+    struct stat sb;
+    off_t len;
+    char *p;
+    int fd;
+    struct timeval ini, fim;
+    long tempo_mmap, tempo_read;
+
+    if (argc < 2) {
+        fprintf(stderr, "usage: %s <file>\n", argv[0]);
+        exit(1);
+    }
+
+    fd = open(argv[1], O_RDONLY);
+    fstat(fd, &sb);
+
+    // a. Número de páginas de memória
+    long page_size = sysconf(_SC_PAGESIZE);
+    long num_pages = (sb.st_size + page_size - 1) 
+    printf("Número de páginas: %ld\n", num_pages);
+
+    // b. Tempo com mmap
+    gettimeofday(&ini, NULL);
+    p = mmap(0, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
+    for (len = 0; len < sb.st_size; len++) (void)p[len];
+    gettimeofday(&fim, NULL);
+    tempo_mmap = (fim.tv_sec - ini.tv_sec) * 1000000 + (fim.tv_usec - ini.tv_usec);
+    munmap(p, sb.st_size);
+
+    // b. Tempo com read
+    lseek(fd, 0, SEEK_SET);
+    char buf[4096];
+    gettimeofday(&ini, NULL);
+    while (read(fd, buf, sizeof(buf)) > 0);
+    gettimeofday(&fim, NULL);
+    tempo_read = (fim.tv_sec - ini.tv_sec) * 1000000 + (fim.tv_usec - ini.tv_usec);
+
+    printf("Tempo com mmap: %ld us\n", tempo_mmap);
+    printf("Tempo com read: %ld us\n", tempo_read);
+
+    close(fd);
+    return 0;
+}
+
+arquivo.txt
+linha 1
+linha 2
+linha 3
+
+Compilação e execução
+$ gcc main.c -o main
+$ ./main arquivo.txt
+
+Resultado
+Número de páginas: 1
+Tempo com mmap: 95 us
+Tempo com read: 142 us
+
+Obs: Os tempos variam a cada execução.
+
+Conclusão
+O programa foi modificado para:
+Calcular o número de páginas de memória usadas com base no tamanho do arquivo e no tamanho da página do sistema;
+Comparar a velocidade de leitura do conteúdo com duas abordagens:
+- Através do mapeamento de memória com mmap;
+- E através de leitura tradicional com read.
+Com um arquivo pequeno como info.txt, os tempos são semelhantes, mas à medida que o arquivo cresce, 
+o mmap tende a ser mais eficiente, especialmente em leituras sequenciais. 
+A medição com gettimeofday() permite observar essa diferença de desempenho. 
+Além disso, o uso de sysconf(_SC_PAGESIZE) possibilita adaptar o cálculo de páginas ao sistema.
