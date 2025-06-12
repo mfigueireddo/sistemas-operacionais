@@ -5,7 +5,7 @@
     #include <stdlib.h>
 
     // Exibe mensagens para acompanhar o andamento do programa
-    #ifdef MODO_TESTE
+    #if MODO_TESTE
         #define LOG(...) do { printf(__VA_ARGS__); } while (0)
     #else
         #define LOG(...) do {} while (0)

@@ -46,12 +46,15 @@ pthread_t gmv_thread;
 int flag_main = 1;
 int flag_gmv = 1;
 int paginas_lidas = 0;
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int main(void)
 {
     imprimeLegenda();
+    
+    printf("--- --- --- --- --- --- --- --- --- + --- --- --- --- --- --- --- --- ---\n\n");
 
-    LOG("> Iniciando o programa\n");
+    printf("> Iniciando o programa\n");
 
     // Pega a semente do rand()
     srand(time(NULL));
@@ -68,6 +71,8 @@ int main(void)
     // Cria 4 processos e os interrompe logo em seguida
     criaProcessos(); pausaProcessos();
 
+    LOG("\n--- --- --- --- --- Procedimentos iniciais concluídos --- --- --- --- ---\n");
+
     sleep(1);
 
     while(flag_main)
@@ -79,8 +84,18 @@ int main(void)
 
             escalonamento(pids[i]);
             sleep(1);
+
+            LOG("\n--- --- --- Round do escalonamento concluído\n");
+
+            LOG("\n> Checando permissão para continuar via mutex...\n");
+            pthread_mutex_lock(&mutex);
+            LOG("> Permissão concedida!\n");
+            pthread_mutex_unlock(&mutex);
+            LOG("> Trecho em mutex finalizado\n");
         }
     }
+
+    LOG("\n--- --- --- --- --- Programa concluído --- --- --- --- ---\n");
 
     // Aguarda o encerramento da thread e dos processos
     aguardaEncerramento();
@@ -88,7 +103,7 @@ int main(void)
     // Libera a memória utilizada dinamicamente pelo programa
     limpaMemoriaMain();
 
-    LOG("> Encerrando o programa\n");
+    printf("> Encerrando o programa\n");
 
     return 0;
 }
@@ -225,7 +240,6 @@ void criaThreadGMV(void)
 // Outros
 void imprimeLegenda(void)
 {
-    printf(">>> Legenda <<<\n");
     printf(">   indica mensagem escrita pela main\n");
     printf(">>  indica mensagem escrita pela GMV\n");
     printf("<>  indica mensagem escrita pelos processos\n");
@@ -266,13 +280,13 @@ void aguardaEncerramento(void)
     LOG("> Thread encerrada!\n");
 
     // Aguarda o encerramento dos processos
+    int status;
     forProcessos(i)
     { 
         LOG("> Aguardando o encerramento do processo %d...\n", i+1);
 
-        waitpid(pids[i], NULL, 0); 
-
-        LOG("> Processo %d encerrado!\n", i+1);
+        waitpid(pids[i], &status, WUNTRACED); 
+        if ( WIFSTOPPED(status) ){ kill(pids[i], SIGCONT); sleep(1); }
     }
 }
 
@@ -289,8 +303,8 @@ void limpaMemoriaMain(void)
         sprintf(nome_pipe, "pipes/pipe%d", i+1);
         if ( unlink(nome_pipe) != 0){ fprintf(stderr, "(!) Erro na remoção da PIPE %d\n", i+1); exit(1); }
     
-        LOG("> PIPE %d removida!", i+1);
+        LOG("> PIPE %d removida!\n", i+1);
     }
 
-    LOG("> Memória da main limpa!\n");
+    LOG("> Memória da main limpa!\n\n");
 }

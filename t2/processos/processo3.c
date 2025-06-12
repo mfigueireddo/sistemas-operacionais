@@ -19,8 +19,9 @@ int main(int argc, char *argv[])
     char buffer[10];
     while( fgets(buffer, sizeof(buffer), arquivo) != NULL )
     {
-        printf("<> Processo 3 - %s", buffer);
+        LOG("\n<> Processo 3 - %s", buffer);
         write(pipe, buffer, strlen(buffer));
+        LOG("<> Escrita na PIPE concluída\n\n");
         sleep(3);
     }
 
@@ -28,7 +29,7 @@ int main(int argc, char *argv[])
     fechaArquivoTexto(arquivo);
     close(pipe);
 
-    LOG("\n<> Processo 3 encerrado\n");
+    LOG("<> Processo 3 encerrado\n");
 
     return 0;
 }

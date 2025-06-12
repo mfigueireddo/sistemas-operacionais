@@ -1,5 +1,1 @@
-- Adicionar mutex ao trecho de memória principal da GMV
 - Conferir quais mensagem estão sendo escritas sem o modo teste
-- Criar uma função pra esses prints de teste
-- exit() não acaba o programa
-- Adicionar debugs mais específicos
