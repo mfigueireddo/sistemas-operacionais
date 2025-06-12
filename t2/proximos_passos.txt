@@ -1,1 +1,0 @@
-- Conferir quais mensagem estão sendo escritas sem o modo teste
