@@ -39,6 +39,7 @@ BasePage pagina_vazia = {-1, '-', -1, NULL};
 extern int flag_main;
 extern int flag_gmv;
 extern int paginas_lidas;
+extern pthread_mutex_t mutex;
 
 // PIPEs
 
@@ -55,33 +56,40 @@ void* gmv(void *arg)
         // Confere se algum processo enviou uma mensagem
         if ( (idx_processo = checaPipes(buffer)) != -1)
         { 
+            LOG(">> Checando permissão para continuar via mutex...\n");
+            pthread_mutex_lock(&mutex);
+            LOG(">> Permissão concedida!\n");
+
             idx_memoria = procuraMemoriaVazia();
 
             if (idx_memoria != -1)
             {
-                LOG(">> Espaço de memória vago no índice %d. Acionando registro de página...\n", idx_memoria);
+                printf(">> Espaço de memória vago no índice %d. Acionando registro de página...\n", idx_memoria);
 
                 atribuiPagina(buffer, idx_memoria, idx_processo); 
 
-                LOG(">> Registro concluído!\n");
+                printf(">> Registro concluído!\n");
             }
             else
             {
-                LOG(">> Não há nenhum espaço disponível na memória. Acionando redistruição de páginas...\n");
+                printf(">> Não há nenhum espaço disponível na memória. Acionando redistruição de páginas...\n");
 
                 acionaRedistribuicao(buffer, idx_memoria); 
 
-                LOG(">> Redistribuição concluída!\n");
+                printf(">> Redistribuição concluída!\n");
             }
 
             paginas_lidas++; 
             
             LOG(">> %d páginas lidas\n", paginas_lidas);
+
+            pthread_mutex_unlock(&mutex);
+            LOG(">> Trecho em mutex finalizado\n");
         }
         if ( checaFim() ){ break; }
     }
 
-    LOG(">> Todos os processos conseguiram colocar suas páginas na memória. Encerrando GMV...\n");
+    LOG("\n>> Todos os processos conseguiram colocar suas páginas na memória. Encerrando GMV...\n");
 
     limpaMemoriaGMV();
 
@@ -118,10 +126,11 @@ int checaPipes(char *retorno)
         tam = read(pipes[i], &buffer, sizeof(buffer));
         if (tam > 0)
         {
-            LOG(">> Nova mensagem na PIPE %d\n", i+1);
+            sleep(1); // Tempo para o processo acabar seu loop
+            LOG("\n>> Nova mensagem na PIPE %d", i+1);
 
             buffer[tam] = '\0';
-            printf(">> GMV - %s\n", buffer);
+            printf("\n>> GMV - %s", buffer);
             strcpy(retorno, buffer);
             return i;
         }
@@ -134,21 +143,21 @@ int checaPipes(char *retorno)
 
 void limpaMemoriaGMV(void)
 {
-    LOG("\n> Iniciando a limpeza da memória da GMV...\n");
+    LOG("\n>> Iniciando a limpeza da memória da GMV...\n");
 
-    LOG("\n> Ordenando o fechamento das PIPEs...");
+    LOG("\n>> Ordenando o fechamento das PIPEs...\n");
     forProcessos(i)
     { 
         LOG(">> Fechando a PIPE %d...\n", i+1);
         close(pipes[i]); 
         LOG(">> PIPE %d fechada!\n", i+1);
     }
-    LOG("\n> Todas as PIPEs foram fechadas!\n");
+    LOG("\n>> Todas as PIPEs foram fechadas!\n");
 
-    LOG("\n> Liberando a memória alocada para Memória RAM...\n");
+    LOG("\n>> Liberando a memória alocada para Memória RAM...\n");
     forMemoria(i){ free(memoria_ram[i]); }
     free(memoria_ram);
-    LOG("\n> Memória liberada!\n");
+    LOG("\n>> Memória liberada!\n");
 
     LOG(">> Memória da GMV limpa!\n");
 }
@@ -220,6 +229,7 @@ int checaFim(void)
     if (paginas_lidas == QTD_PAGINAS*QTD_PROCESSOS)
     {
         flag_main = 0; flag_gmv = 0;
+        printf(">> Todas as páginas foram lidas!\n\n");
         return 1;
     }
 
