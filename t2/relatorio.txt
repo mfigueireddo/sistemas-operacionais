@@ -1,0 +1,286 @@
+Matheus Moreira da Silva Figueiredo - 2320813
+Luana Nobre da Costa - 2310204
+
+\--- \* --- --- \* --- --- \* --- --- \* --- --- \* --- --- \* ---
+
+Compilação e execução
+\$ make
+\$ ./main
+
+O projeto implementa um **Gerenciador de Memória Virtual (GMV)** com quatro processos consumidores que realizam acessos a páginas por meio de arquivos `.txt`. O GMV utiliza algoritmos de substituição de páginas como **NRU**, **Second Chance**, **LRU/Aging** e **Working Set**. O sistema simula o funcionamento de uma memória RAM limitada, realiza page faults, substituições, bloqueios de leitura/escrita e escreve logs detalhados da execução.
+
+Arquivos principais:
+
+* main.c: controla o ciclo de vida da simulação, cria a thread GMV, processos consumidores e realiza limpeza final.
+* gmv.c: gerenciador de memória virtual propriamente dito. Cria a RAM, controla page faults, substituições e mantém estatísticas.
+* processo1-4.c: arquivos que representam os processos consumidores. Leem acessos de arquivos `.txt` e escrevem nos pipes correspondentes.
+* algoritmos/*.c: contém os algoritmos de substituição.
+* utils.c e utils.h: funções auxiliares, como manipulação de arquivos, logs e criação de diretórios.
+
+\--- \* --- --- \* --- --- \* --- --- \* --- --- \* --- --- \* ---
+
+### Sobre main.c
+
+Controla a execução do sistema:
+
+* Cria os pipes e arquivos de log.
+* Cria a thread que executa `gmv.c` (função `gmv()`).
+* Cria 4 processos com `fork()` que executam `processo1-4.c`.
+* Aguarda a finalização da GMV e dos processos consumidores.
+* Realiza a limpeza dos pipes e memória alocada.
+
+int main(int argc, char *argv[])
+    Responsável por iniciar a execução do simulador. Recebe três parâmetros da linha de comando:
+        1. Algoritmo de substituição (LRU, NRU, SecondChance, WS),
+        2. Número de rodadas,
+        3. Valor de k (janela do Working Set), quando aplicável.
+    Etapas:
+    - Valida os parâmetros.
+    - Imprime a legenda das mensagens.
+    - Cria os arquivos de acesso das páginas.
+    - Cria as pipes de comunicação entre processos e GMV.
+    - Cria a thread GMV.
+    - Cria os processos simulados e os pausa.
+    - Executa um escalonamento Round-Robin por N rodadas.
+    - Ao final, espera o encerramento da thread e dos processos e limpa a memória.
+
+void criaArquivosTexto(void)
+    Gera ou reutiliza os arquivos ordem_processoX.txt, que contêm a sequência embaralhada de acessos a páginas (com modo R ou W) para cada processo.
+        - Se o arquivo já existir, não o sobrescreve.
+        - Gera 32 entradas para cada processo com páginas únicas e modos aleatórios.
+        - Utiliza geraVetorBaguncado() para embaralhar os acessos.
+
+void criaProcessos(void)
+    Cria 4 processos filhos utilizando fork(), que depois executam os arquivos binários processo1, processo2, etc.
+    Cada processo simula um gerador de acessos à memória.
+
+void pausaProcessos(void)
+    Envia o sinal SIGSTOP para todos os 4 processos logo após sua criação, pausando-os até que o escalonador os reative.
+
+void escalonamento(int pid)
+    Realiza um ciclo de escalonamento por processo: envia SIGCONT para continuar a execução por um tempo breve e depois SIGSTOP para interrompê-lo novamente.
+    É utilizado para simular escalonamento cooperativo.
+
+void criaThreadGMV(void)
+    Cria a thread que roda o GMV principal (gmv(void*)), responsável por alocar páginas na memória, aplicar o algoritmo de substituição e lidar com os acessos vindos pelos pipes.
+
+void criaPipes(void)
+    Cria 4 pipes nomeadas do tipo FIFO (pipes/pipeX) para permitir a comunicação entre os processos e a thread GMV.
+    Se a criação falhar, o programa encerra.
+
+void imprimeLegenda(void)
+    Imprime o significado das marcações de log (>, >>, <>, (!)) usadas durante a execução para facilitar a leitura da saída no terminal.
+
+int* geraVetorBaguncado(void)
+    Cria um vetor contendo os valores de 0 a 31 (páginas), e os embaralha aleatoriamente.
+    Utilizado para gerar a ordem de acessos aos arquivos de texto dos processos.
+
+char geraReadWrite(void)
+    Gera aleatoriamente o caractere 'R' ou 'W' com igual probabilidade, representando leitura ou escrita em uma página de memória.
+
+void aguardaEncerramento(void)
+    Aguarda o término da thread GMV (pthread_join).
+    Aguarda o término dos processos filhos usando waitpid.
+    Caso o processo ainda esteja parado (WIFSTOPPED), envia SIGCONT e espera brevemente para ele concluir.
+
+void limpaMemoriaMain(void)
+    Remove todas as pipes criadas usando unlink.
+    Libera recursos de forma segura após a execução do simulador.
+
+
+### Sobre gmv.c
+
+Arquivo central do GMV. Suas funções são:
+
+void* gmv(void* arg):
+    Função principal da thread GMV (Gerenciador de Memória Virtual). Responsável por:
+    - Inicializar as pipes e alocar a memória RAM.
+    - A cada iteração, escuta mensagens dos processos por meio das pipes.
+    - Registra a página na RAM, se houver espaço, ou realiza substituição com base no algoritmo escolhido.
+    - Atualiza estruturas auxiliares conforme o algoritmo (e.g., bit_R, contador, tempo_ultimo_acesso).
+    - Encerra-se automaticamente após todos os acessos terem sido processados.
+
+void abrePipes(void):
+    Abre as pipes previamente criadas pelos processos para leitura (READ_MODE), uma para cada processo. Armazena os descritores no vetor global pipes.
+
+int checaPipes(char *retorno):
+    Verifica se algum dos processos escreveu uma nova mensagem (acesso à memória) em sua respectiva pipe. Se encontrar, copia a mensagem para retorno e retorna o índice do processo. Caso contrário, retorna -1
+
+void criaMemoriaRAM(void):
+    Inicializa a estrutura memoria_ram com MAX_PAGINAS posições, cada uma representando um quadro de memória. Preenche com a estrutura pagina_vazia, que indica que a posição está desocupada
+
+int procuraMemoriaVazia(void):
+    Percorre a RAM em busca da primeira posição que esteja vazia (usando checaMemoriaVazia). Retorna o índice da posição ou -1 se nenhuma estiver disponível.
+
+void atribuiPagina(char *dados, int idx_memoria, int idx_processo):
+    Registra uma nova página na memória:
+    - Extrai o número da página e o modo de acesso (R ou W) da string dados.
+    - Atualiza os campos da estrutura BasePage na posição indicada.
+    - Libera e recria a estrutura auxiliar extra de acordo com o algoritmo selecionado (2nCH, NRU, LRU, WS).
+
+void acionaRedistribuicao(char *dados, int idx_memoria)
+    Executa a substituição de página quando a RAM está cheia:
+    - Usa a função de seleção do algoritmo correspondente para escolher a vítima.
+    - Caso a página da vítima tenha sido escrita (modo == 'W'), simula gravação no disco.
+    - Exibe mensagens de page fault e substituição.
+    - Substitui o conteúdo da posição com a nova página usando atribuiPagina.
+
+void limpaMemoriaGMV(void):
+    Finaliza e libera os recursos usados pelo GMV:
+    - Fecha todas as pipes.
+    - Libera a memória alocada dinamicamente para representar a memória RAM, incluindo os campos auxiliares (extra) usados pelos algoritmos.
+
+void imprimeTabelas(void)
+    Imprime no terminal o estado final da memória RAM. Para cada processo, lista as páginas que ainda estão em memória após o término da execução.
+
+int checaMemoriaVazia(BasePage *pagina)
+    Verifica se uma determinada página da memória é considerada “vazia”, ou seja, se seus campos coincidem com os valores da estrutura pagina_vazia. Retorna 1 (verdadeiro) ou 0 (falso).
+
+int checaFim(void)
+    Verifica se todas as páginas de todos os processos já foram lidas (paginas_lidas == QTD_PAGINAS * QTD_PROCESSOS).
+    - Em caso positivo, desativa as flags flag_main e flag_gmv para encerrar a thread e retorna 1.
+    - Caso contrário, retorna 0.
+
+A lógica da thread GMV funciona assim:
+
+1. Espera por dados dos pipes.
+2. Extrai número da página e modo (R/W).
+3. Verifica se a página já está na RAM.
+4. Se não estiver, ocorre page fault:
+   * Se houver espaço, insere diretamente.
+   * Se não houver, aplica algoritmo de substituição.
+5. Atualiza bits R e M, imprime logs e atualiza contadores.
+
+\--- \* --- --- \* --- --- \* --- --- \* --- --- \* --- --- \* ---
+
+### Sobre utils.c
+
+FILE* abreArquivoTexto(char* caminho, char modo)
+    Abre um arquivo no modo leitura ('r') ou escrita ('w'). Encerra o programa se não conseguir abrir.
+
+void fechaArquivoTexto(FILE* arquivo)
+    Fecha um arquivo aberto.
+
+int conectaPipe(char *caminho, int modo)
+    Abre uma pipe nomeada no modo indicado (leitura ou escrita). Encerra se não conseguir abrir.
+
+
+### Sobre utils.h
+
+Macros importantes:
+    - QTD_PROCESSOS, QTD_PAGINAS, MAX_PAGINAS: definem os limites do sistema.
+    - forProcessos(i), forPaginas(i), forMemoria(i): atalhos para for loops.
+    - READ_MODE, WRITE_MODE, READWRITE_MODE: modos de abertura de pipes.
+    - LOG(...): imprime mensagens de depuração (ativado só se MODO_TESTE for definido).
+
+Struct BasePage
+    Representa uma página na memória:
+    - num: número da página.
+    - modo: acesso 'R' ou 'W'.
+    - processo: qual processo solicitou.
+    - extra: dados extras para o algoritmo (ex: bit_R, contador, etc.).
+
+\--- \* --- --- \* --- --- \* --- --- \* --- --- \* --- --- \* ---
+
+### Sobre processo1.c, processo2.c, processo3.c, processo4.c
+
+Cada um desses arquivos representa um processo consumidor:
+
+* Abre seu respectivo arquivo ordem_processoX.txt.
+* Conecta-se ao pipe correspondente (pipe1 a pipe4).
+* Aguarda 6 segundos para sincronização.
+* Envia linha a linha os acessos (formato `número R/W`) ao GMV.
+* Espera 3 segundos entre os envios.
+* Fecha o pipe e termina.
+
+
+\--- \* --- --- \* --- --- \* --- --- \* --- --- \* --- --- \* ---
+
+
+### Sobre os algoritmos de substituição (pasta `algoritmos/`)
+
+1. NRU (Not Recently Used)
+
+atualizaBitsNRU(BasePage **memoria)
+    Zera o bit de referência (bit_R) de todas as páginas na memória, em ciclos (normalmente a cada 10 acessos).
+
+select_NRU(BasePage **memoria)
+    Classifica páginas em 4 classes com base nos bits R e M:
+    - Classe 0: R=0, M=0 → melhor
+    - Classe 1: R=0, M=1
+    - Classe 2: R=1, M=0
+    - Classe 3: R=1, M=1 → pior
+        Retorna a primeira página encontrada da melhor classe disponível.
+
+2. Second Chance (Segunda Chance)
+
+select_SecondChance(BasePage **memoria_ram)
+    Percorre a memória circularmente (com ponteiro ponteiro_SC) e:
+    - Dá segunda chance (zera o bit R e pula) se bit_R == 1.
+    - Substitui a primeira página com bit_R == 0.
+
+3. LRU/Aging
+
+atualizaContadoresLRU(BasePage **memoria, int processo)
+    Atualiza o contador de cada página do processo usando a técnica de Aging.
+    - Faz um shift à direita no contador (envelhecimento).
+    - Se o bit de referência (bit_R) está ativo, seta o bit mais significativo.
+    - Depois, zera bit_R.
+
+select_LRU(BasePage **memoria, int processo)
+    Seleciona a página do processo com o menor contador (mais antiga) para substituição.
+
+4. Working Set
+
+atualizaContadoresWS(BasePage **memoria, int processo)
+    Atualiza o tempo de último acesso (tempo_ultimo_acesso) das páginas com bit_R = 1.
+    Depois, zera o bit_R.
+
+select_WorkingSet(BasePage **memoria, int processo)
+    Retorna uma página fora do Working Set (idade ≥ WS_K) do processo atual.
+    Se não encontrar, escolhe a mais antiga dentro do WS.
+    Se ainda não houver, retorna qualquer página como fallback.
+
+
+\--- \* --- --- \* --- --- \* --- --- \* --- --- \* --- --- \* ---
+
+
+### Integração geral e fluxo
+
+1. `main.c` inicia pipes, GMV e processos.
+2. Processos consumidores enviam acessos com delay.
+3. GMV coleta os dados, detecta page faults e substituições.
+4. Aplica o algoritmo configurado via terminal.
+5. Registra page faults, escritas sujas e atualiza a Tabela de Páginas.
+6. Ao fim das rodadas ou da leitura de todos os processos, o GMV imprime estatísticas e limpa a memória.
+
+### Execução
+
+```bash
+$ make
+$ ./main 2nCH 50
+$ ./main NRU 50
+$ ./main LRU 50
+$ ./main WS 50
+
+A saída exibe:
+
+* Algoritmo escolhido
+* Quantidade de rodadas executadas
+* Page Faults: P1 => P3, sujo? sim/não
+* Tabela de Páginas final da RAM
+* Total de páginas substituídas
+
+\--- \* --- --- \* --- --- \* --- --- \* --- --- \* --- --- \* ---
+
+### Considerações finais
+
+* O sistema permite simular comportamento realista de gerência de memória virtual.
+* Com base nos testes, todos os algoritmos executam corretamente, mas o número de substituições se manteve constante (112), o que indica que o padrão de acesso é determinístico.
+* O simulador está modularizado, permitindo fácil inserção de novos algoritmos.
+
+Possíveis melhorias:
+
+* Testar com tamanhos diferentes de RAM.
+
+\--- \* --- --- \* --- --- \* --- --- \* --- --- \* --- --- \* ---
