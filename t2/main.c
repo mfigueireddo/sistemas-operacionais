@@ -1,4 +1,5 @@
 #include "utils.h"
+#include <string.h>
 
 // Processos
 #include <unistd.h>
@@ -47,14 +48,33 @@ int flag_main = 1;
 int flag_gmv = 1;
 int paginas_lidas = 0;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+char algoritmo[10];
+int total_rodadas;
+extern int WS_K;
 
-int main(void)
+int main(int argc, char *argv[])
 {
+
+     if (argc < 3) {
+        printf("Uso: ./main <algoritmo> <rodadas> [<ws_k>]\n");
+        return 1;
+    }
+
+    strcpy(algoritmo, argv[1]);
+    total_rodadas = atoi(argv[2]);
+
+    if (strcmp(algoritmo, "WS") == 0 && argc == 4) {
+        WS_K = atoi(argv[3]); // permite ajustar k pela linha de comando
+    }
+
     imprimeLegenda();
     
     printf("--- --- --- --- --- --- --- --- --- + --- --- --- --- --- --- --- --- ---\n\n");
 
     printf("> Iniciando o programa\n");
+
+    printf("Algoritmo de Substituição: %s\n", algoritmo);
+    printf("Rodadas executadas: %d\n", total_rodadas);
 
     // Pega a semente do rand()
     srand(time(NULL));
@@ -75,7 +95,7 @@ int main(void)
 
     sleep(1);
 
-    while(flag_main)
+    for (int rodada = 0; rodada < total_rodadas && flag_main; rodada++)
     {
         // Escalonamento Round-Robin
         forProcessos(i)
@@ -113,49 +133,50 @@ void criaArquivosTexto(void)
 {
     LOG("\n> Iniciando criação dos arquivos texto...\n");
 
-    // Abre os arquivos no modo escrita
-    FILE *arquivos[4]; char caminho[100];
+    FILE *arquivos[4] = {NULL};
+    char caminho[100];
+
+    /* 1. cria-ou-abre */
     forProcessos(i)
     {
-        LOG("> Criando o arquivo texto %d...\n", i+1);
-
         sprintf(caminho, "./arquivos_txt/ordem_processo%d.txt", i+1);
-        arquivos[i] = abreArquivoTexto(caminho, 'w');
 
+        if (access(caminho, F_OK) == 0) {
+            LOG("> Arquivo texto %d já existe, pulando criação...\n", i+1);
+            continue;                     /* NÃO abre em 'w', nem grava */
+        }
+
+        LOG("> Criando o arquivo texto %d...\n", i+1);
+        arquivos[i] = abreArquivoTexto(caminho, 'w');
         LOG("> Arquivo texto %d criado!\n", i+1);
     }
 
-    // Monta os arquivos de cada processo
-    int *nums, modo;
+    /* 2. preenche só quem foi criado agora */
     forProcessos(i)
     {
+        if (arquivos[i] == NULL) continue;          /* já existia – pula */
+
         LOG("> Preenchendo o arquivo texto %d...\n", i+1);
 
-        nums = geraVetorBaguncado(); // Gera um vetor de números
-
+        int *nums = geraVetorBaguncado();
         forPaginas(j)
-        {
-            modo = geraReadWrite(); // Gera 'W' ou 'R'
-            fprintf(arquivos[i], "%d %c\n", nums[j], modo);
-        }
+            fprintf(arquivos[i], "%d %c\n", nums[j], geraReadWrite());
 
+        free(nums);                  /* libera o vetor desse processo  */
         LOG("> Arquivo texto %d preenchido!\n", i+1);
     }
 
-    // Fecha os arquivos
-    forProcessos(i){
-        LOG("> Fechando o arquivo texto %d...\n", i+1);
-
-        fechaArquivoTexto(arquivos[i]);
-
-        LOG("> Arquivo texto %d fechado!\n", i+1);
-    }
-
-    // Libera a memória alocada para nums
-    free(nums);
+    /* 3. fecha só quem foi aberto em 'w' */
+    forProcessos(i)
+        if (arquivos[i] != NULL) {
+            LOG("> Fechando o arquivo texto %d...\n", i+1);
+            fechaArquivoTexto(arquivos[i]);
+            LOG("> Arquivo texto %d fechado!\n", i+1);
+        }
 
     LOG("> Todos os arquivos texto foram criados!\n");
 }
+
 
 void criaProcessos(void)
 {

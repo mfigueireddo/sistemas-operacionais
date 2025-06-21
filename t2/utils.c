@@ -5,7 +5,7 @@
 
 FILE* abreArquivoTexto(char* caminho, char modo)
 {
-    FILE* arquivo = fopen(caminho, &modo);
+    FILE* arquivo = fopen(caminho, (modo == 'r') ? "r" : "w");
     if (arquivo == NULL){ fprintf(stderr, "(!) Erro na abertura de arquivo.\n"); exit(1); }
     return arquivo;
 }

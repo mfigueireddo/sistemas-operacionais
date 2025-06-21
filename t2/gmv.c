@@ -1,4 +1,8 @@
 #include "utils.h"
+#include "algoritmos/second_chance.h"
+#include "algoritmos/nru.h"
+#include "algoritmos/lru.h"
+#include "algoritmos/working_set.h"
 
 // Processos
 #include <unistd.h>
@@ -21,6 +25,7 @@ int checaPipes(char *retorno);
 
 // GMV
 void limpaMemoriaGMV(void);
+void imprimeTabelas(void);
 void criaMemoriaRAM(void);
 int checaMemoriaVazia(BasePage *pagina);
 int procuraMemoriaVazia(void);
@@ -29,6 +34,7 @@ void acionaRedistribuicao(char *dados, int idx_memoria);
 
 // Outros
 int checaFim(void);
+extern char algoritmo[10]; // ex: "2nCH", "NRU", "LRU", "WS"
 
 // Essenciais
 int *pipes;
@@ -40,6 +46,10 @@ extern int flag_main;
 extern int flag_gmv;
 extern int paginas_lidas;
 extern pthread_mutex_t mutex;
+int processo_que_fez_falta = -1;
+int paginas_substituidas = 0;
+extern int tempo_global;
+
 
 // PIPEs
 
@@ -56,6 +66,7 @@ void* gmv(void *arg)
         // Confere se algum processo enviou uma mensagem
         if ( (idx_processo = checaPipes(buffer)) != -1)
         { 
+            processo_que_fez_falta = idx_processo;
             LOG(">> Checando permissão para continuar via mutex...\n");
             pthread_mutex_lock(&mutex);
             LOG(">> Permissão concedida!\n");
@@ -80,7 +91,25 @@ void* gmv(void *arg)
             }
 
             paginas_lidas++; 
-            
+
+            if (strcmp(algoritmo, "NRU") == 0 && paginas_lidas % 10 == 0) 
+            {
+                atualizaBitsNRU(memoria_ram); // zera bits R a cada 10 páginas
+            }
+
+            if (strcmp(algoritmo, "LRU") == 0) 
+            {
+                atualizaContadoresLRU(memoria_ram, idx_processo);
+            }
+
+            if (strcmp(algoritmo, "WS") == 0) 
+            {
+                atualizaContadoresWS(memoria_ram, idx_processo);
+                tempo_global++;
+            }
+
+
+
             LOG(">> %d páginas lidas\n", paginas_lidas);
 
             pthread_mutex_unlock(&mutex);
@@ -91,9 +120,17 @@ void* gmv(void *arg)
 
     LOG("\n>> Todos os processos conseguiram colocar suas páginas na memória. Encerrando GMV...\n");
 
-    limpaMemoriaGMV();
+    
+
+    printf(">> Total de páginas substituídas: %d\n", paginas_substituidas);
 
     LOG(">> Gerenciador de Memória Virtual encerrado!\n");
+
+    imprimeTabelas();
+
+    limpaMemoriaGMV();
+
+    return NULL;
 }
 
 void abrePipes(void)
@@ -155,12 +192,44 @@ void limpaMemoriaGMV(void)
     LOG("\n>> Todas as PIPEs foram fechadas!\n");
 
     LOG("\n>> Liberando a memória alocada para Memória RAM...\n");
-    forMemoria(i){ free(memoria_ram[i]); }
+
+    forMemoria(i) 
+    {
+        if (memoria_ram[i]->extra != NULL) 
+        {
+            free(memoria_ram[i]->extra);
+        }
+        free(memoria_ram[i]);
+    }
+
     free(memoria_ram);
     LOG("\n>> Memória liberada!\n");
 
     LOG(">> Memória da GMV limpa!\n");
 }
+
+void imprimeTabelas(void) {
+    printf("\nTabela de Páginas Final na RAM:\n");
+
+    if (memoria_ram == NULL) {
+        printf("(!) Erro: memoria_ram não foi alocada\n");
+        return;
+    }
+
+    for (int p = 0; p < QTD_PROCESSOS; p++) {
+        printf("P%d: ", p + 1);
+        for (int i = 0; i < MAX_PAGINAS; i++) {
+            if (memoria_ram[i] != NULL &&
+                memoria_ram[i]->processo == p &&
+                memoria_ram[i]->num != -1) {
+                printf("%d ", memoria_ram[i]->num);
+            }
+        }
+        printf("\n");
+    }
+}
+
+
 
 void criaMemoriaRAM(void)
 {
@@ -204,25 +273,73 @@ int procuraMemoriaVazia(void)
 
 void atribuiPagina(char *dados, int idx_memoria, int idx_processo)
 {
-    LOG(">> Criando página na Memória RAM...\n");
-
     int num; char modo;
     sscanf(dados, "%d %c", &num, &modo);
 
-    BasePage *pagina;
-    pagina = memoria_ram[idx_memoria];
+    BasePage *pagina = memoria_ram[idx_memoria];
 
     pagina->num = num;
     pagina->modo = modo;
     pagina->processo = idx_processo;
-    pagina->extra = NULL;
 
-    LOG(">> Página criada!\n");
+    // Apaga o extra antigo se ainda existir
+    if (pagina->extra != NULL) {
+        free(pagina->extra);
+        pagina->extra = NULL;
+    }
+
+    // Algoritmo específico
+    if (strcmp(algoritmo, "2nCH") == 0) {
+        ExtraSecondChance *extra = malloc(sizeof(ExtraSecondChance));
+        extra->bit_R = 1;
+        pagina->extra = (void*)extra;
+    }
+    else if (strcmp(algoritmo, "NRU") == 0) {
+        ExtraNRU *extra = malloc(sizeof(ExtraNRU));
+        extra->bit_R = 1;
+        extra->bit_M = (modo == 'W') ? 1 : 0;
+        pagina->extra = (void*)extra;
+    }
+    else if (strcmp(algoritmo, "LRU") == 0) {
+        ExtraLRU *extra = malloc(sizeof(ExtraLRU));
+        extra->contador = 0;     // começa com 0
+        extra->bit_R = 1;        // foi referenciada agora
+        pagina->extra = (void*)extra;
+    }
+    else if (strcmp(algoritmo, "WS") == 0) {
+        ExtraWS *extra = malloc(sizeof(ExtraWS));
+        extra->bit_R = 1;
+        extra->tempo_ultimo_acesso = tempo_global;
+        pagina->extra = (void*)extra;
+    }
+
 }
+
 
 void acionaRedistribuicao(char *dados, int idx_memoria)
 {
+    int idx;
+
+    if (strcmp(algoritmo, "2nCH") == 0)
+        idx = select_SecondChance(memoria_ram);
+    else if (strcmp(algoritmo, "NRU") == 0)
+        idx = select_NRU(memoria_ram);
+    else if (strcmp(algoritmo, "LRU") == 0)
+        idx = select_LRU(memoria_ram, processo_que_fez_falta);
+    else if (strcmp(algoritmo, "WS") == 0)
+        idx = select_WorkingSet(memoria_ram, processo_que_fez_falta);
+
+    // substituição genérica
+    BasePage *vitima = memoria_ram[idx];
+    if (vitima->modo == 'W') {
+        printf(">> Página suja escrita para o disco (processo %d)\n", vitima->processo + 1);
+    }
+    printf(">> Page fault: P%d causou substituição de página do P%d (página %d)\n",
+    processo_que_fez_falta + 1, vitima->processo + 1, vitima->num);
+    paginas_substituidas++;
+    atribuiPagina(dados, idx, processo_que_fez_falta);
 }
+
 
 int checaFim(void)
 {
