@@ -123,7 +123,7 @@ int main(int argc, char *argv[])
     // Libera a memória utilizada dinamicamente pelo programa
     limpaMemoriaMain();
 
-    printf("> Encerrando o programa\n");
+    printf("\n> Encerrando o programa\n");
 
     return 0;
 }

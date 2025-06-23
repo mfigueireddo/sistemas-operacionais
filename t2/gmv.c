@@ -108,9 +108,7 @@ void* gmv(void *arg)
                 tempo_global++;
             }
 
-
-
-            LOG(">> %d páginas lidas\n", paginas_lidas);
+            printf(">> %d páginas lidas\n", paginas_lidas);
 
             pthread_mutex_unlock(&mutex);
             LOG(">> Trecho em mutex finalizado\n");
