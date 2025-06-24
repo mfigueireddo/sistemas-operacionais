@@ -13,7 +13,8 @@
 
     // Macros
     #define QTD_PROCESSOS 4
-    #define QTD_PAGINAS 32
+    #define QTD_PAGINAS 100
+    #define LIMITE_PAGINAS 32
     #define MAX_PAGINAS 16
     #define forProcessos(i) for(int i=0; i<QTD_PROCESSOS; i++)
     #define forPaginas(i) for(int i=0; i<QTD_PAGINAS; i++)

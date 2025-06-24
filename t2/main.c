@@ -55,7 +55,7 @@ extern int WS_K;
 int main(int argc, char *argv[])
 {
 
-     if (argc < 3) {
+    if (argc < 3) {
         printf("Uso: ./main <algoritmo> <rodadas> [<ws_k>]\n");
         return 1;
     }
@@ -269,19 +269,16 @@ void imprimeLegenda(void)
 
 int* geraVetorBaguncado(void)
 {
-    // Preenche um vetor com números de 0 à 32 (inclusos)
+    // Preenche um vetor com números de 0 à 31
     int *nums;
     nums = (int*)malloc(sizeof(int)*QTD_PAGINAS);
-    forPaginas(i){ nums[i] = i; }
+    if (nums == NULL) exit(1);
 
-    int new_pos, temp;
-    for(int old_pos=QTD_PAGINAS-1; old_pos>0; old_pos--)
+    forPaginas(i)
     {
-        new_pos = rand() % (old_pos+1);
-        temp = nums[new_pos];
-        nums[new_pos] = nums[old_pos];
-        nums[old_pos] = temp;
+        nums[i] = rand() % (LIMITE_PAGINAS); 
     }
+
     return nums;
 }
 

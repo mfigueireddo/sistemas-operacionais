@@ -29,6 +29,7 @@ void imprimeTabelas(void);
 void criaMemoriaRAM(void);
 int checaMemoriaVazia(BasePage *pagina);
 int procuraMemoriaVazia(void);
+int procuraPaginaExistente(char *dados);
 void atribuiPagina(char *dados, int idx_memoria, int idx_processo);
 void acionaRedistribuicao(char *dados, int idx_memoria);
 
@@ -83,11 +84,23 @@ void* gmv(void *arg)
             }
             else
             {
-                printf(">> Não há nenhum espaço disponível na memória. Acionando redistruição de páginas...\n");
+                idx_memoria = procuraPaginaExistente(buffer);
 
-                acionaRedistribuicao(buffer, idx_memoria); 
+                // Redistribuição
+                if (idx_memoria == -1)
+                {
+                    printf(">> Não há nenhum espaço disponível na memória. Acionando redistruição de páginas...\n");
 
-                printf(">> Redistribuição concluída!\n");
+                    acionaRedistribuicao(buffer, idx_memoria); 
+
+                    printf(">> Redistribuição concluída!\n");
+                }
+
+                // Página existente
+                else
+                {
+                    printf(">> A página já está presente na memória!\n");
+                }
             }
 
             paginas_lidas++; 
@@ -117,8 +130,6 @@ void* gmv(void *arg)
     }
 
     LOG("\n>> Todos os processos conseguiram colocar suas páginas na memória. Encerrando GMV...\n");
-
-    
 
     printf(">> Total de páginas substituídas: %d\n", paginas_substituidas);
 
@@ -264,6 +275,23 @@ int procuraMemoriaVazia(void)
     forMemoria(i)
     {
         if ( checaMemoriaVazia(memoria_ram[i]) ) return i;
+    }
+
+    return -1;
+}
+
+int procuraPaginaExistente(char *dados)
+{
+    int page_num; char modo;
+    sscanf(dados, "%d %c", &page_num, &modo);
+
+    forMemoria(i)
+    {
+        if ( memoria_ram[i]->num == page_num && memoria_ram[i]->processo == processo_que_fez_falta )
+        {
+            memoria_ram[i]->modo = modo;
+            return i;
+        }
     }
 
     return -1;
