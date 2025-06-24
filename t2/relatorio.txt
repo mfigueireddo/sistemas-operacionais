@@ -279,6 +279,7 @@ A saída exibe:
 $ ./main 2nCH 100
 
 >> Total de páginas substituídas: 339
+>> Total de páginas sujas: 331
 
 Tabela de Páginas Final na RAM:
 P1: 12 27 5 26 1

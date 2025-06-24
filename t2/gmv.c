@@ -135,7 +135,7 @@ void* gmv(void *arg)
     LOG(">> Gerenciador de Memória Virtual encerrado!\n");
 
     printf(">> Total de páginas substituídas: %d\n", paginas_substituidas);
-
+    printf(">> Total de páginas sujas: %d\n", paginas_sujas); 
 
     imprimeTabelas();
 
@@ -309,6 +309,8 @@ void atribuiPagina(char *dados, int idx_memoria, int idx_processo)
     pagina->num = num;
     pagina->modo = modo;
     pagina->processo = idx_processo;
+
+    if (modo == 'W') paginas_sujas++;
 
     // Apaga o extra antigo se ainda existir
     if (pagina->extra != NULL) {
