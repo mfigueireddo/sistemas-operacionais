@@ -50,7 +50,7 @@ extern pthread_mutex_t mutex;
 int processo_que_fez_falta = -1;
 int paginas_substituidas = 0;
 extern int tempo_global;
-
+int paginas_sujas = 0;
 
 // PIPEs
 
@@ -122,6 +122,7 @@ void* gmv(void *arg)
             }
 
             printf(">> %d páginas lidas\n", paginas_lidas);
+            printf(">> %d páginas sujas\n", paginas_sujas);
 
             pthread_mutex_unlock(&mutex);
             LOG(">> Trecho em mutex finalizado\n");
@@ -131,9 +132,10 @@ void* gmv(void *arg)
 
     LOG("\n>> Todos os processos conseguiram colocar suas páginas na memória. Encerrando GMV...\n");
 
+    LOG(">> Gerenciador de Memória Virtual encerrado!\n");
+
     printf(">> Total de páginas substituídas: %d\n", paginas_substituidas);
 
-    LOG(">> Gerenciador de Memória Virtual encerrado!\n");
 
     imprimeTabelas();
 
@@ -359,6 +361,7 @@ void acionaRedistribuicao(char *dados, int idx_memoria)
     BasePage *vitima = memoria_ram[idx];
     if (vitima->modo == 'W') {
         printf(">> Página suja escrita para o disco (processo %d)\n", vitima->processo + 1);
+        paginas_sujas++;
     }
     printf(">> Page fault: P%d causou substituição de página do P%d (página %d)\n",
     processo_que_fez_falta + 1, vitima->processo + 1, vitima->num);
