@@ -27,6 +27,7 @@ int checaPipes(char *retorno);
 void limpaMemoriaGMV(void);
 void imprimeTabelas(void);
 void criaMemoriaRAM(void);
+void criaTabelasProcessos(void);
 int checaMemoriaVazia(BasePage *pagina);
 int procuraMemoriaVazia(void);
 int procuraPaginaExistente(char *dados);
@@ -40,6 +41,7 @@ extern char algoritmo[10]; // ex: "2nCH", "NRU", "LRU", "WS"
 // Essenciais
 int *pipes;
 BasePage** memoria_ram;
+BasePage*** tabelas_processos;
 BasePage pagina_vazia = {-1, '-', -1, NULL};
 
 // Auxiliares
@@ -60,6 +62,7 @@ void* gmv(void *arg)
 
     abrePipes();
     criaMemoriaRAM();
+    criaTabelasProcessos();
 
     char buffer[10]; int idx_memoria, idx_processo;
     while(flag_gmv)
@@ -72,34 +75,35 @@ void* gmv(void *arg)
             pthread_mutex_lock(&mutex);
             LOG(">> Permissão concedida!\n");
 
-            idx_memoria = procuraMemoriaVazia();
+            idx_memoria = procuraPaginaExistente(buffer);
 
-            if (idx_memoria != -1)
+            // Página existente
+            if ( idx_memoria != -1 )
             {
-                printf(">> Espaço de memória vago no índice %d. Acionando registro de página...\n", idx_memoria);
-
-                atribuiPagina(buffer, idx_memoria, idx_processo); 
-
-                printf(">> Registro concluído!\n");
+                printf(">> A página já está presente na memória!\n");
             }
+
             else
             {
-                idx_memoria = procuraPaginaExistente(buffer);
+                idx_memoria = procuraMemoriaVazia();
 
+                // Página disponível na mmeória
+                if (idx_memoria != -1)
+                {
+                    printf(">> Espaço de memória vago no índice %d. Acionando registro de página...\n", idx_memoria);
+
+                    atribuiPagina(buffer, idx_memoria, idx_processo); 
+
+                    printf(">> Registro concluído!\n");
+                }
                 // Redistribuição
-                if (idx_memoria == -1)
+                else
                 {
                     printf(">> Não há nenhum espaço disponível na memória. Acionando redistruição de páginas...\n");
 
                     acionaRedistribuicao(buffer, idx_memoria); 
 
                     printf(">> Redistribuição concluída!\n");
-                }
-
-                // Página existente
-                else
-                {
-                    printf(">> A página já está presente na memória!\n");
                 }
             }
 
@@ -258,6 +262,29 @@ void criaMemoriaRAM(void)
     }
 
     LOG(">> Memória reservada!\n");
+}
+
+void criaTabelasProcessos(void)
+{
+    LOG(">> Criando tabelas para cada processo...\n");
+
+    tabelas_processos = (BasePage***)malloc(sizeof(BasePage**)*4);
+    
+    for(int i=0; i<4; i++)
+    {
+        tabelas_processos[i] = (BasePage**)malloc(sizeof(BasePage*)*32);
+        
+        for(int j=0; j<32; j++)
+        { 
+            tabelas_processos[i][j] = (BasePage*)malloc(sizeof(BasePage)); 
+            tabelas_processos[i][j]->num = j;
+            tabelas_processos[i][j]->modo = pagina_vazia.modo;
+            tabelas_processos[i][j]->processo = i;
+            tabelas_processos[i][j]->extra = pagina_vazia.extra;
+        }
+    }
+
+    LOG(">> Tabelas criadas!\n");
 }
 
 int checaMemoriaVazia(BasePage *pagina)
