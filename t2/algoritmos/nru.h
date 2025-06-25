@@ -10,6 +10,6 @@ typedef struct {
 
 int select_NRU(BasePage **memoria);
 
-void atualizaBitsNRU(BasePage **memoria); // (opcional) para limpar bits R periodicamente
+void atualizaBitsNRU(BasePage ***tabelas_processos); // (opcional) para limpar bits R periodicamente
 
 #endif

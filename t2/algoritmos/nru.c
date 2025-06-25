@@ -7,11 +7,14 @@
 /*
  * Função auxiliar opcional: usada para resetar o bit R de tempos em tempos.
  */
-void atualizaBitsNRU(BasePage **memoria) {
-    for (int i = 0; i < MAX_PAGINAS; i++) {
-        if (memoria[i]->extra != NULL) {
-            ExtraNRU *extra = (ExtraNRU*)memoria[i]->extra;
-            extra->bit_R = 0;
+void atualizaBitsNRU(BasePage ***tabelas_processos) {
+    for(int p=0; p<4; p++)
+    {
+        for (int i = 0; i < 32; i++) {
+            if (tabelas_processos[p][i]->extra != NULL) {
+                ExtraNRU *extra = (ExtraNRU*)tabelas_processos[p][i]->extra;
+                extra->bit_R = 0;
+            }
         }
     }
 }

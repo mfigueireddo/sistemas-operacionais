@@ -4,10 +4,10 @@
 /*
  * Atualiza os contadores das páginas do processo usando a técnica de Aging.
  */
-void atualizaContadoresLRU(BasePage **memoria, int processo) {
-    for (int i = 0; i < MAX_PAGINAS; i++) {
-        if (memoria[i]->processo == processo && memoria[i]->extra != NULL) {
-            ExtraLRU *extra = (ExtraLRU*) memoria[i]->extra;
+void atualizaContadoresLRU(BasePage **tabela, int processo) {
+    for (int i = 0; i < 32; i++) {
+        if (tabela[processo][i].extra != NULL) {
+            ExtraLRU *extra = (ExtraLRU*) tabela[processo][i].extra;
             extra->contador >>= 1; // desloca bits para a direita
 
             if (extra->bit_R) {

@@ -26,6 +26,7 @@ int checaPipes(char *retorno);
 // GMV
 void limpaMemoriaGMV(void);
 void imprimeTabelas(void);
+void imprimeRAM(void);
 void criaMemoriaRAM(void);
 void criaTabelasProcessos(void);
 int checaMemoriaVazia(BasePage *pagina);
@@ -33,6 +34,7 @@ int procuraMemoriaVazia(void);
 int procuraPaginaExistente(char *dados);
 void atribuiPagina(char *dados, int idx_memoria, int idx_processo);
 void acionaRedistribuicao(char *dados, int idx_memoria);
+void imprimePagina(BasePage* pagina);
 
 // Outros
 int checaFim(void);
@@ -111,22 +113,23 @@ void* gmv(void *arg)
 
             if (strcmp(algoritmo, "NRU") == 0 && paginas_lidas % 10 == 0) 
             {
-                atualizaBitsNRU(memoria_ram); // zera bits R a cada 10 páginas
+                atualizaBitsNRU(tabelas_processos); // zera bits R a cada 10 páginas
             }
 
             if (strcmp(algoritmo, "LRU") == 0) 
             {
-                atualizaContadoresLRU(memoria_ram, idx_processo);
+                atualizaContadoresLRU(tabelas_processos[idx_processo], idx_processo);
             }
 
             if (strcmp(algoritmo, "WS") == 0) 
             {
-                atualizaContadoresWS(memoria_ram, idx_processo);
+                atualizaContadoresWS(tabelas_processos[idx_processo], idx_processo);
                 tempo_global++;
             }
 
             printf(">> %d páginas lidas\n", paginas_lidas);
             printf(">> %d páginas sujas\n", paginas_sujas);
+            printf(">> %d páginas substituídas\n", paginas_substituidas);
 
             pthread_mutex_unlock(&mutex);
             LOG(">> Trecho em mutex finalizado\n");
@@ -136,14 +139,16 @@ void* gmv(void *arg)
 
     LOG("\n>> Todos os processos conseguiram colocar suas páginas na memória. Encerrando GMV...\n");
 
-    LOG(">> Gerenciador de Memória Virtual encerrado!\n");
+    imprimeTabelas();
+
+    imprimeRAM();
 
     printf(">> Total de páginas substituídas: %d\n", paginas_substituidas);
     printf(">> Total de páginas sujas: %d\n", paginas_sujas); 
 
-    imprimeTabelas();
-
     limpaMemoriaGMV();
+    
+    LOG(">> Gerenciador de Memória Virtual encerrado!\n");
 
     return NULL;
 }
@@ -206,24 +211,51 @@ void limpaMemoriaGMV(void)
     }
     LOG("\n>> Todas as PIPEs foram fechadas!\n");
 
-    LOG("\n>> Liberando a memória alocada para Memória RAM...\n");
-
-    forMemoria(i) 
+    LOG("\n>> Liberando as tabelas dos processos...\n");
+    for (int i = 0; i < 4; i++)
     {
-        if (memoria_ram[i]->extra != NULL) 
+        for (int j = 0; j < 32; j++)
         {
-            free(memoria_ram[i]->extra);
+            if (tabelas_processos[i][j] != NULL)
+            {
+                if (tabelas_processos[i][j]->extra != NULL && tabelas_processos[i][j]->extra != pagina_vazia.extra)
+                {
+                    printf("Free no extra\n");
+                    free(tabelas_processos[i][j]->extra);
+                }
+                printf("Free na página\n");
+                free(tabelas_processos[i][j]);
+            }
         }
-        free(memoria_ram[i]);
+        printf("Free na tabela do processo\n");
+        free(tabelas_processos[i]);
     }
+    printf("Free nas tabelas\n");
+    free(tabelas_processos);
+    LOG("\n>> Tabelas dos processos liberadas...\n");
 
+    LOG("\n>> Liberando a memória alocada para Memória RAM...\n");
     free(memoria_ram);
-    LOG("\n>> Memória liberada!\n");
+    LOG("\n>> Memória RAM liberada!\n");
 
     LOG(">> Memória da GMV limpa!\n");
 }
 
+
 void imprimeTabelas(void) {
+    printf("\nTabela de Páginas Final na RAM:\n");
+
+    for (int p = 0; p < QTD_PROCESSOS; p++) {
+        printf("P%d\n", p + 1);
+
+        for (int i = 0; i < 32; i++) {
+            imprimePagina(tabelas_processos[p][i]);
+        }
+        printf("\n");
+    }
+}
+
+void imprimeRAM(void) {
     printf("\nTabela de Páginas Final na RAM:\n");
 
     if (memoria_ram == NULL) {
@@ -243,8 +275,6 @@ void imprimeTabelas(void) {
         printf("\n");
     }
 }
-
-
 
 void criaMemoriaRAM(void)
 {
@@ -280,7 +310,7 @@ void criaTabelasProcessos(void)
             tabelas_processos[i][j]->num = j;
             tabelas_processos[i][j]->modo = pagina_vazia.modo;
             tabelas_processos[i][j]->processo = i;
-            tabelas_processos[i][j]->extra = pagina_vazia.extra;
+            tabelas_processos[i][j]->extra = NULL;
         }
     }
 
@@ -331,45 +361,39 @@ void atribuiPagina(char *dados, int idx_memoria, int idx_processo)
     int num; char modo;
     sscanf(dados, "%d %c", &num, &modo);
 
-    BasePage *pagina = memoria_ram[idx_memoria];
+    memoria_ram[idx_memoria] = tabelas_processos[idx_processo][num];
 
-    pagina->num = num;
-    pagina->modo = modo;
-    pagina->processo = idx_processo;
+    if ( (tabelas_processos[idx_processo][num]->modo == 'R' ||  tabelas_processos[idx_processo][num]->modo == '-') && modo == 'W') paginas_sujas++;
 
-    if (modo == 'W') paginas_sujas++;
+    tabelas_processos[idx_processo][num]->modo = modo;
 
-    // Apaga o extra antigo se ainda existir
-    if (pagina->extra != NULL) {
-        free(pagina->extra);
-        pagina->extra = NULL;
+    if (tabelas_processos[idx_processo][num]->extra == NULL)
+    {
+        // Algoritmo específico
+        if (strcmp(algoritmo, "2nCH") == 0) {
+            ExtraSecondChance *extra = malloc(sizeof(ExtraSecondChance));
+            extra->bit_R = 1;
+            tabelas_processos[idx_processo][num]->extra = (void*)extra;
+        }
+        else if (strcmp(algoritmo, "NRU") == 0) {
+            ExtraNRU *extra = malloc(sizeof(ExtraNRU));
+            extra->bit_R = 1;
+            extra->bit_M = (modo == 'W') ? 1 : 0;
+            tabelas_processos[idx_processo][num]->extra = (void*)extra;
+        }
+        else if (strcmp(algoritmo, "LRU") == 0) {
+            ExtraLRU *extra = malloc(sizeof(ExtraLRU));
+            extra->contador = 0;     // começa com 0
+            extra->bit_R = 1;        // foi referenciada agora
+            tabelas_processos[idx_processo][num]->extra = (void*)extra;
+        }
+        else if (strcmp(algoritmo, "WS") == 0) {
+            ExtraWS *extra = malloc(sizeof(ExtraWS));
+            extra->bit_R = 1;
+            extra->tempo_ultimo_acesso = tempo_global;
+            tabelas_processos[idx_processo][num]->extra = (void*)extra;
+        }
     }
-
-    // Algoritmo específico
-    if (strcmp(algoritmo, "2nCH") == 0) {
-        ExtraSecondChance *extra = malloc(sizeof(ExtraSecondChance));
-        extra->bit_R = 1;
-        pagina->extra = (void*)extra;
-    }
-    else if (strcmp(algoritmo, "NRU") == 0) {
-        ExtraNRU *extra = malloc(sizeof(ExtraNRU));
-        extra->bit_R = 1;
-        extra->bit_M = (modo == 'W') ? 1 : 0;
-        pagina->extra = (void*)extra;
-    }
-    else if (strcmp(algoritmo, "LRU") == 0) {
-        ExtraLRU *extra = malloc(sizeof(ExtraLRU));
-        extra->contador = 0;     // começa com 0
-        extra->bit_R = 1;        // foi referenciada agora
-        pagina->extra = (void*)extra;
-    }
-    else if (strcmp(algoritmo, "WS") == 0) {
-        ExtraWS *extra = malloc(sizeof(ExtraWS));
-        extra->bit_R = 1;
-        extra->tempo_ultimo_acesso = tempo_global;
-        pagina->extra = (void*)extra;
-    }
-
 }
 
 
@@ -392,10 +416,12 @@ void acionaRedistribuicao(char *dados, int idx_memoria)
         printf(">> Página suja escrita para o disco (processo %d)\n", vitima->processo + 1);
         paginas_sujas++;
     }
+
     printf(">> Page fault: P%d causou substituição de página do P%d (página %d)\n",
     processo_que_fez_falta + 1, vitima->processo + 1, vitima->num);
     paginas_substituidas++;
-    atribuiPagina(dados, idx, processo_que_fez_falta);
+
+   atribuiPagina(dados, idx, processo_que_fez_falta);
 }
 
 
@@ -409,4 +435,46 @@ int checaFim(void)
     }
 
     return 0;
+}
+
+void imprimePagina(BasePage* pagina)
+{
+    if (pagina == NULL)
+    {
+        printf("Página nula\n");
+        return;
+    }
+
+    printf("Página %d | Modo: %c | Processo: %d",
+           pagina->num,
+           pagina->modo,
+           pagina->processo+1
+        );
+
+    if (pagina->extra == NULL)
+    {
+        printf(" | [Extra] (null)\n");
+        return;
+    }
+
+    if (strcmp(algoritmo, "2nCH") == 0)
+    {
+        ExtraSecondChance* extra = (ExtraSecondChance*)pagina->extra;
+        printf(" | [2nCH] bit_R: %d\n", extra->bit_R);
+    }
+    else if (strcmp(algoritmo, "NRU") == 0)
+    {
+        ExtraNRU* extra = (ExtraNRU*)pagina->extra;
+        printf(" | [NRU] bit_R: %d | bit_M: %d\n", extra->bit_R, extra->bit_M);
+    }
+    else if (strcmp(algoritmo, "LRU") == 0)
+    {
+        ExtraLRU* extra = (ExtraLRU*)pagina->extra;
+        printf("  [LRU] contador: %u | bit_R: %d\n", extra->contador, extra->bit_R);
+    }
+    else if (strcmp(algoritmo, "WS") == 0)
+    {
+        ExtraWS* extra = (ExtraWS*)pagina->extra;
+        printf(" | [WS] bit_R: %d | tempo_ultimo_acesso: %d\n", extra->bit_R, extra->tempo_ultimo_acesso);
+    }
 }

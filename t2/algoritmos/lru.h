@@ -9,6 +9,6 @@ typedef struct {
 } ExtraLRU;
 
 int select_LRU(BasePage **memoria, int processo); // LRU é local
-void atualizaContadoresLRU(BasePage **memoria, int processo);
+void atualizaContadoresLRU(BasePage **tabela, int processo);
 
 #endif

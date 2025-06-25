@@ -13,6 +13,6 @@ typedef struct {
 extern int tempo_global; // tempo absoluto
 
 int select_WorkingSet(BasePage **memoria, int processo);
-void atualizaContadoresWS(BasePage **memoria, int processo);
+void atualizaContadoresWS(BasePage **tabela, int processo);
 
 #endif

@@ -8,10 +8,10 @@ int tempo_global = 0; // tempo global avança a cada acesso
 /*
  * Atualiza os bits R e timestamps das páginas do processo atual
  */
-void atualizaContadoresWS(BasePage **memoria, int processo) {
-    for (int i = 0; i < MAX_PAGINAS; i++) {
-        if (memoria[i]->processo == processo && memoria[i]->extra != NULL) {
-            ExtraWS *extra = (ExtraWS*)memoria[i]->extra;
+void atualizaContadoresWS(BasePage **tabela, int processo) {
+    for (int i = 0; i < 32; i++) {
+        if (tabela[processo][i].extra != NULL) {
+            ExtraWS *extra = (ExtraWS*)tabela[processo][i].extra;
 
             if (extra->bit_R) {
                 extra->tempo_ultimo_acesso = tempo_global;
