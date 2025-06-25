@@ -55,6 +55,7 @@ int processo_que_fez_falta = -1;
 int paginas_substituidas = 0;
 extern int tempo_global;
 int paginas_sujas = 0;
+extern int penalidade[];
 
 // PIPEs
 
@@ -118,12 +119,12 @@ void* gmv(void *arg)
 
             if (strcmp(algoritmo, "LRU") == 0) 
             {
-                atualizaContadoresLRU(tabelas_processos[idx_processo], idx_processo);
+                atualizaContadoresLRU(tabelas_processos, idx_processo);
             }
 
             if (strcmp(algoritmo, "WS") == 0) 
             {
-                atualizaContadoresWS(tabelas_processos[idx_processo], idx_processo);
+                atualizaContadoresWS(tabelas_processos, idx_processo);
                 tempo_global++;
             }
 
@@ -220,18 +221,15 @@ void limpaMemoriaGMV(void)
             {
                 if (tabelas_processos[i][j]->extra != NULL && tabelas_processos[i][j]->extra != pagina_vazia.extra)
                 {
-                    printf("Free no extra\n");
                     free(tabelas_processos[i][j]->extra);
                 }
-                printf("Free na página\n");
                 free(tabelas_processos[i][j]);
             }
         }
-        printf("Free na tabela do processo\n");
         free(tabelas_processos[i]);
     }
-    printf("Free nas tabelas\n");
     free(tabelas_processos);
+    
     LOG("\n>> Tabelas dos processos liberadas...\n");
 
     LOG("\n>> Liberando a memória alocada para Memória RAM...\n");
@@ -419,7 +417,9 @@ void acionaRedistribuicao(char *dados, int idx_memoria)
 
     printf(">> Page fault: P%d causou substituição de página do P%d (página %d)\n",
     processo_que_fez_falta + 1, vitima->processo + 1, vitima->num);
+
     paginas_substituidas++;
+    penalidade[processo_que_fez_falta] = 1;
 
    atribuiPagina(dados, idx, processo_que_fez_falta);
 }

@@ -59,6 +59,7 @@ void pausaProcessos(void)
 
 void escalonamento(int pid)
     Realiza um ciclo de escalonamento por processo: envia SIGCONT para continuar a execução por um tempo breve e depois SIGSTOP para interrompê-lo novamente.
+    Um tempo maior de espera é utilizado para simular uma penalidade à um processo que gerou page fault.
     É utilizado para simular escalonamento cooperativo.
 
 void criaThreadGMV(void)
@@ -94,7 +95,7 @@ Arquivo central do GMV. Suas funções são:
 
 void* gmv(void* arg):
     Função principal da thread GMV (Gerenciador de Memória Virtual). Responsável por:
-    - Inicializar as pipes e alocar a memória RAM.
+    - Inicializar as pipes, alocar a memória RAM e criar tabelas dos processos.
     - A cada iteração, escuta mensagens dos processos por meio das pipes.
     - Registra a página na RAM, se houver espaço, ou realiza substituição com base no algoritmo escolhido.
     - Atualiza estruturas auxiliares conforme o algoritmo (e.g., bit_R, contador, tempo_ultimo_acesso).
@@ -109,6 +110,9 @@ int checaPipes(char *retorno):
 void criaMemoriaRAM(void):
     Inicializa a estrutura memoria_ram com MAX_PAGINAS posições, cada uma representando um quadro de memória. Preenche com a estrutura pagina_vazia, que indica que a posição está desocupada
 
+void criaTabelasProcessos(void):
+    Inicializa a estrutura tabelas_processos, que representa as tabelas de páginas dos 4 processos. Cada processo recebe uma tabela com 32 páginas, onde cada página possui seu número (num) e é inicialmente marcada como desocupada (com os mesmos valores padrão de pagina_vazia, exceto pelo campo extra, que começa como NULL). Essas tabelas servirão para mapear quais páginas cada processo pode usar e armazenar informações sobre o estado de cada página virtual.
+
 int procuraMemoriaVazia(void):
     Percorre a RAM em busca da primeira posição que esteja vazia (usando checaMemoriaVazia). Retorna o índice da posição ou -1 se nenhuma estiver disponível.
 
@@ -116,24 +120,23 @@ int procuraPaginaExistente(char *dados);
     Percorre a RAM em busca da página enviada pelo processo. Retorna o índice da posição ou -1 se não for encontrada.
 
 void atribuiPagina(char *dados, int idx_memoria, int idx_processo):
-    Registra uma nova página na memória:
-    - Extrai o número da página e o modo de acesso (R ou W) da string dados.
-    - Atualiza os campos da estrutura BasePage na posição indicada.
-    - Libera e recria a estrutura auxiliar extra de acordo com o algoritmo selecionado (2nCH, NRU, LRU, WS).
+    Associa uma página de um processo a uma posição na memória RAM (memoria_ram). A partir dos dados lidos (número da página e modo de acesso 'R' ou 'W'), a função realiza o mapeamento entre a RAM e a tabela de páginas do processo (tabelas_processos). Se o modo for de escrita ('W') e a página ainda não estiver marcada como escrita, o contador de páginas sujas (paginas_sujas) é incrementado.
+    Além disso, caso o campo extra da página ainda não tenha sido alocado, a função reserva memória e inicializa os campos adicionais conforme o algoritmo de substituição de páginas selecionado (2nCH, NRU, LRU ou WS), armazenando as informações específicas necessárias para cada estratégia de gerenciamento de memória.
 
 void acionaRedistribuicao(char *dados, int idx_memoria)
-    Executa a substituição de página quando a RAM está cheia:
-    - Usa a função de seleção do algoritmo correspondente para escolher a vítima.
-    - Caso a página da vítima tenha sido escrita (modo == 'W'), simula gravação no disco.
-    - Exibe mensagens de page fault e substituição.
-    - Substitui o conteúdo da posição com a nova página usando atribuiPagina.
+    Responsável por tratar um page fault quando a memória RAM está cheia. A função identifica, de acordo com o algoritmo de substituição selecionado (2nCH, NRU, LRU ou WS), qual página deverá ser removida da memória (a "vítima").
+    Se a página vítima estiver no modo de escrita ('W'), ela é considerada uma página suja e uma mensagem de escrita em disco é exibida. Em seguida, a função registra a substituição e aplica penalidade ao processo causador da falta. Por fim, ela chama atribuiPagina para carregar a nova página na posição da vítima, substituindo-a adequadamente.
 
 void limpaMemoriaGMV(void):
     Finaliza e libera os recursos usados pelo GMV:
     - Fecha todas as pipes.
     - Libera a memória alocada dinamicamente para representar a memória RAM, incluindo os campos auxiliares (extra) usados pelos algoritmos.
 
-void imprimeTabelas(void)
+void imprimeTabelas(void):
+    Exibe no terminal o estado final das tabelas de páginas dos processos, com foco em como estão mapeadas após a execução da simulação. Para cada processo (P1 a P4), imprime todas as suas 32 páginas, chamando a função imprimePagina para detalhar as informações de cada página — como número, modo de acesso, processo proprietário e dados específicos do algoritmo de substituição (armazenados em extra).
+    Essa função é útil para debug, validação de estados finais e análise de como as páginas foram acessadas ou substituídas durante a execução.
+
+void imprimeRAM(void)
     Imprime no terminal o estado final da memória RAM. Para cada processo, lista as páginas que ainda estão em memória após o término da execução.
 
 int checaMemoriaVazia(BasePage *pagina)
@@ -143,6 +146,9 @@ int checaFim(void)
     Verifica se todas as páginas de todos os processos já foram lidas (paginas_lidas == QTD_PAGINAS * QTD_PROCESSOS).
     - Em caso positivo, desativa as flags flag_main e flag_gmv para encerrar a thread e retorna 1.
     - Caso contrário, retorna 0.
+
+void imprimePagina(BasePage* pagina):
+    Imprime as informações básicas de uma página (número, modo, processo) e, se disponível, os dados extras específicos do algoritmo de substituição atual (2nCH, NRU, LRU, WS). Se extra for NULL, indica ausência de dados adicionais.
 
 A lógica da thread GMV funciona assim:
 
@@ -204,8 +210,8 @@ Cada um desses arquivos representa um processo consumidor:
 
 1. NRU (Not Recently Used)
 
-atualizaBitsNRU(BasePage **memoria)
-    Zera o bit de referência (bit_R) de todas as páginas na memória, em ciclos (normalmente a cada 10 acessos).
+void atualizaBitsNRU(BasePage ***tabelas_processos)
+    Zera o bit de referência (bit_R) de todas as páginas, em ciclos (a cada 10 acessos).
 
 select_NRU(BasePage **memoria)
     Classifica páginas em 4 classes com base nos bits R e M:
@@ -224,7 +230,7 @@ select_SecondChance(BasePage **memoria_ram)
 
 3. LRU/Aging
 
-atualizaContadoresLRU(BasePage **memoria, int processo)
+void atualizaContadoresLRU(BasePage ***tabela, int processo)
     Atualiza o contador de cada página do processo usando a técnica de Aging.
     - Faz um shift à direita no contador (envelhecimento).
     - Se o bit de referência (bit_R) está ativo, seta o bit mais significativo.
@@ -235,7 +241,7 @@ select_LRU(BasePage **memoria, int processo)
 
 4. Working Set
 
-atualizaContadoresWS(BasePage **memoria, int processo)
+void atualizaContadoresWS(BasePage ***tabela, int processo)
     Atualiza o tempo de último acesso (tempo_ultimo_acesso) das páginas com bit_R = 1.
     Depois, zera o bit_R.
 
@@ -276,52 +282,32 @@ A saída exibe:
 
 \--- \* --- --- \* --- --- \* --- --- \* --- --- \* --- --- \* ---
 
-$ ./main 2nCH 100
+### Resultados
 
-...
-
-\--- \* --- --- \* --- --- \* --- --- \* --- --- \* --- --- \* ---
-
-$ ./main NRU 100
-
+Segunda chance
 >> Total de páginas substituídas: 341
+>> Total de páginas sujas: 281
 
-Tabela de Páginas Final na RAM:
-P1: 1 12 4
-P2: 15 1 16 13
-P3: 14 10 23 17
-P4: 25 14 10 2 23
+NRU
+>> Total de páginas substituídas: 343
+>> Total de páginas sujas: 269
 
-\--- \* --- --- \* --- --- \* --- --- \* --- --- \* --- --- \* ---
+LRU
+>> Total de páginas substituídas: 339
+>> Total de páginas sujas: 280
 
-$ ./main LRU 100
+Working Set
+>> Total de páginas substituídas: 342
+>> Total de páginas sujas: 285
 
->> Total de páginas substituídas: 332
-
-Tabela de Páginas Final na RAM:
-P1: 5 26 1 12
-P2: 15 7 1 3
-P3: 14 10 23 3
-P4: 14 2 17 25
-
-\--- \* --- --- \* --- --- \* --- --- \* --- --- \* --- --- \* ---
-
-$ ./main WS 100
-
->> Total de páginas substituídas: 338
-
-Tabela de Páginas Final na RAM:
-P1: 1 12 26 6
-P2: 15 7 22 0
-P3: 14 10 27 3
-P4: 2 14 27 7
 
 \--- \* --- --- \* --- --- \* --- --- \* --- --- \* --- --- \* ---
 
 ### Considerações finais
 
 * O sistema permite simular comportamento realista de gerência de memória virtual.
-* Com base nos testes, todos os algoritmos executam corretamente, mas o número de substituições se manteve constante (112), o que indica que o padrão de acesso é determinístico.
+* Com base nos testes, todos os algoritmos executam corretamente, porém gastam muito tempo.
+* Considerando apenas a quantidade de page faults, LRU foi o melhor algoritmo.
 * O simulador está modularizado, permitindo fácil inserção de novos algoritmos.
 
 Possíveis melhorias:

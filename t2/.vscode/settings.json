@@ -11,6 +11,7 @@
         "ipc.h": "c",
         "signal.h": "c",
         "string.h": "c",
-        "utils.h": "c"
+        "utils.h": "c",
+        "limits.h": "c"
     }
 }
