@@ -51,6 +51,7 @@ pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 char algoritmo[10];
 int total_rodadas;
 extern int WS_K;
+int penalidade[QTD_PROCESSOS] = {0}; // 0 = sem penalidade, 1 = deve ser penalizado
 
 int main(int argc, char *argv[])
 {
@@ -220,10 +221,22 @@ void pausaProcessos(void)
 
 void escalonamento(int pid)
 {
+    int i;
+    for (i = 0; i < QTD_PROCESSOS; i++) {
+        if (pids[i] == pid) break;
+    }
+
     LOG("> Ordenando que o processo continue\n");
     kill(pid, SIGCONT);
 
-    sleep(1);
+    // Se houve penalidade, aplica atraso maior
+    if (penalidade[i]) {
+        LOG("> Processo causou page fault. Aplicando penalidade de tempo...\n");
+        sleep(3);
+        penalidade[i] = 0; // reseta penalidade
+    } else {
+        sleep(1);
+    }
 
     LOG("> Ordenando que o processo pare\n");
     kill(pid, SIGSTOP);

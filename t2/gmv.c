@@ -49,6 +49,7 @@ extern pthread_mutex_t mutex;
 int processo_que_fez_falta = -1;
 int paginas_substituidas = 0;
 extern int tempo_global;
+extern int penalidade[]; // declara uso do vetor vindo da main
 
 
 // PIPEs
@@ -335,7 +336,9 @@ void acionaRedistribuicao(char *dados, int idx_memoria)
     printf(">> Page fault: P%d causou substituição de página do P%d (página %d)\n",
     processo_que_fez_falta + 1, vitima->processo + 1, vitima->num);
     paginas_substituidas++;
+    penalidade[processo_que_fez_falta] = 1;
     atribuiPagina(dados, idx, processo_que_fez_falta);
+    printf(">> Penalidade aplicada ao processo P%d\n", i + 1);
 }
 
 

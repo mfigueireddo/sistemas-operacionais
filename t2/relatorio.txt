@@ -241,6 +241,24 @@ select_WorkingSet(BasePage **memoria, int processo)
     Se não encontrar, escolhe a mais antiga dentro do WS.
     Se ainda não houver, retorna qualquer página como fallback.
 
+\--- \* --- --- \* --- --- \* --- --- \* --- --- \* --- --- \* ---
+
+### Ponto Extra – Penalidade por Page Fault
+
+Como ponto adicional, foi implementada uma penalidade simulada para os processos que causam page faults. 
+A penalidade representa o tempo que o sistema real levaria para carregar a página da memória secundária (swap), prejudicando o desempenho do processo causador.
+
+Como foi implementado:
+    1. Identificação do culpado:
+    - Ao ocorrer uma falta de página, o processo responsável é identificado no momento da substituição.
+    - Essa lógica está implementada dentro da função acionaRedistribuicao() no arquivo gmv.c, onde é possível determinar qual processo solicitou o acesso inválido à RAM.
+
+    2. Registro da penalidade:
+    - Foi adicionada uma variável processo_que_fez_falta, compartilhada com a função main, que armazena qual processo causou a última falta de página.
+
+    3. Aplicação da penalidade:
+    - Durante o escalonamento, em main.c, após cada execução de processo, verifica-se se aquele processo causou o último page fault.
+    - Se sim, é aplicada uma penalidade simulada, representada por um sleep(3) extra e uma mensagem na saída padrão
 
 \--- \* --- --- \* --- --- \* --- --- \* --- --- \* --- --- \* ---
 
@@ -268,6 +286,7 @@ A saída exibe:
 * Algoritmo escolhido
 * Quantidade de rodadas executadas
 * Page Faults: P1 => P3, sujo? sim/não
+* Penalidade aplicada ao processo Px
 * Tabela de Páginas final da RAM
 * Total de páginas substituídas
 
